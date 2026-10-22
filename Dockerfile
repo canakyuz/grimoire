@@ -43,7 +43,7 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt \
 # codec/X11 dependency chain this image spends real effort elsewhere avoiding.
 #
 # Configuring ffmpeg down to the decoders a battlemap can plausibly use gives a
-# ~4.7 MB binary that links only libc/libm/libz — all already in the runtime —
+# ~5 MB binary that links only libc/libm/libz — all already in the runtime —
 # so it adds no packages and no shared libraries at all.
 #
 # --enable-zlib is not optional despite nothing here compressing video: the PNG
@@ -56,8 +56,12 @@ FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595
 # (https://ffmpeg.org/ffmpeg-devel.asc, fingerprint
 # FCF9 86EA 15E6 E293 A564 4F10 B432 2F04 D676 58D8):
 #   gpg --verify ffmpeg-X.tar.xz.asc ffmpeg-X.tar.xz && sha256sum ffmpeg-X.tar.xz
-ARG FFMPEG_VERSION=7.0.3
-ARG FFMPEG_SHA256=bbb18f3cc5c1c34b21cf176c0168c4d9aa97697542a97f60d491a58a814dea65
+# Stay on a release branch FFmpeg still backports fixes to: the newest point
+# release on https://ffmpeg.org/download.html. An older branch stops getting
+# them without notice (7.0 did, while the mov demuxer and swscale kept getting
+# fixed on 7.1 and 8.x).
+ARG FFMPEG_VERSION=8.1.3
+ARG FFMPEG_SHA256=7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \

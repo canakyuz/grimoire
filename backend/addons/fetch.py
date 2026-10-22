@@ -155,13 +155,13 @@ def fetch_json(
 
     try:
         return json.loads(body)
-    except ValueError:
+    except (ValueError, RecursionError):
         # If strict JSON decoding fails, attempt parsing as YAML for index sources
         # (e.g. index.yaml) before raising a fetch error.
         try:
-            import yaml
+            from ..services import untrusted_yaml
 
-            parsed = yaml.safe_load(body)
+            parsed = untrusted_yaml.safe_load(body)
             if isinstance(parsed, (dict, list)):
                 return parsed
         except Exception:

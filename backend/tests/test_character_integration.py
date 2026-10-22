@@ -377,6 +377,29 @@ class TestPortraits:
             f"/api/characters/{created['id']}/portrait", headers=admin_headers
         ).status_code == 404
 
+    @pytest.mark.parametrize("fmt,ctype", [("TIFF", "image/png"), ("PPM", "image/jpeg")])
+    def test_only_the_accepted_formats_decode(
+        self, client, admin_headers, both_schemas, fmt, ctype
+    ):
+        """A format Pillow reads but portraits do not offer is refused, whatever
+        type the client claims for it."""
+        from PIL import Image
+
+        created = client.post(
+            "/api/characters",
+            json={"schema_ref": "p5-demo", "name": "Disguised"},
+            headers=admin_headers,
+        ).json()
+        buffer = io.BytesIO()
+        Image.new("RGB", (4, 4), "red").save(buffer, format=fmt)
+        resp = client.post(
+            f"/api/characters/{created['id']}/portrait",
+            files={"file": ("p.png", buffer.getvalue(), ctype)},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "That file is not an image"
+
     def test_a_replaced_portrait_gets_a_new_version(self, client, admin_headers, both_schemas):
         """The image is cached for minutes, so the client puts the version in
         its URL - a replacement must change it, and the character must say so."""

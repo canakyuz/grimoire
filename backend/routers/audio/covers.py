@@ -21,7 +21,12 @@ from ...auth import CurrentUser, require_gm_or_admin
 from ...config import AUDIO_COVER_DIR, get_db, logger
 from ...file_cache import cached_file_response
 from ...models import Audio
-from ...services.image_source import load_source_image, source_ext, validate_image
+from ...services.image_source import (
+    load_source_image,
+    source_ext,
+    source_formats,
+    validate_image,
+)
 from ._schemas import AudioCoverSourceIn
 
 _IMAGE_TYPES = {
@@ -119,7 +124,7 @@ def set_audio_cover_from_source(
     """Set a track's cover from an image Grimoire already holds (issue #286)."""
     track = _get_audio_or_404(db, audio_id)
     data = load_source_image(db, current_user, body.source_type, body.source_id)
-    validate_image(data)
+    validate_image(data, source_formats(body.source_type))
     filename = _store_cover(track, data, source_ext(data))
     db.commit()
     return {"cover_image": filename}

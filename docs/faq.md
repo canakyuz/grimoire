@@ -33,7 +33,8 @@ compose files in this repo shipped placeholder values (`change-me`,
 `grimoire-dev-secret-change-in-production`), those exact strings are public
 knowledge. Anyone who knows the key can mint a valid **admin** session for any
 instance using it, so Grimoire now refuses to start on one instead of quietly
-running with forgeable logins.
+running with forgeable logins. The same goes for a fill-in line left unedited, such
+as `<paste the generated value here>` - any value written in `<angle brackets>`.
 
 **This most often hits people who copied an example compose file and never edited
 the `SECRET_KEY` line** - the app started fine before, so nothing prompted them to

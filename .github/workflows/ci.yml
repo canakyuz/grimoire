@@ -4,18 +4,19 @@ on:
   push:
     branches:
       - main
-      - dev
   pull_request:
 
 # A newer push to the same PR makes the run in progress pointless: cancel it
-# rather than let it hold runners. Pushes to main/dev always finish, since the
+# rather than let it hold runners. Pushes to main always finish, since the
 # coverage badges and nightly images come from them.
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Read-only by default; no job here writes to the repository. The coverage
-# badges are written to gists with the GIST_SECRET token, not GITHUB_TOKEN.
+# badges are written to gists with the GIST_SECRET token, not GITHUB_TOKEN, and
+# only by the coverage-badges job: the jobs that run code - this repo's tests
+# and the community add-ons' scripts - never see a secret.
 permissions:
   contents: read
 
@@ -23,13 +24,6 @@ jobs:
   frontend-checks:
     name: Frontend lint + build
     runs-on: ubuntu-latest
-    # A direct push to `dev` while the `dev -> main` PR is open makes CI run
-    # twice for the same commit: once for `push` and once for `pull_request`.
-    # Skip the redundant `pull_request` run when its head branch is `dev` — the
-    # `push` run already covers that commit. Every job below does the same.
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.ref != 'dev'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -80,9 +74,6 @@ jobs:
   frontend-tests:
     name: Frontend tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.ref != 'dev'
     strategy:
       fail-fast: false
       matrix:
@@ -120,11 +111,7 @@ jobs:
     name: Frontend build + test
     runs-on: ubuntu-latest
     needs: [frontend-checks, frontend-tests]
-    if: >-
-      always() && (
-        github.event_name != 'pull_request' ||
-        github.event.pull_request.head.ref != 'dev'
-      )
+    if: always()
     steps:
       - name: Lint, build and every test shard passed
         env:
@@ -171,31 +158,16 @@ jobs:
           git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.ref }}"
           npm run coverage:check
 
-      # Publish a coverage badge from the numbers just computed. Runs only on a
-      # push to main so the badge tracks the released code, never a PR/feature
-      # branch. Extracts the total line-coverage % from the json-summary reporter
-      # output and writes it to a Shields.io endpoint gist (no third-party service
-      # ingests the code). Requires the GIST_SECRET repo secret and FRONTEND_COVERAGE_GIST_ID var.
-      - name: Extract frontend coverage %
+      # The badge is published by the coverage-badges job, which holds the
+      # secret it needs; this job only hands it the summary.
+      - name: Upload coverage summary for the badge
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        id: frontend_cov
-        working-directory: frontend
-        run: |
-          pct=$(node -e "process.stdout.write(String(require('./coverage/coverage-summary.json').total.lines.pct))")
-          echo "pct=${pct}" >> "$GITHUB_OUTPUT"
-
-      - name: Update frontend coverage badge
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: schneegans/dynamic-badges-action@28b0fa8bdeb46170ac397105ece0c1fe58f68910 # v1.9.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          auth: ${{ secrets.GIST_SECRET }}
-          gistID: ${{ vars.FRONTEND_COVERAGE_GIST_ID }}
-          filename: grimoire-frontend-coverage.json
-          label: frontend coverage
-          message: ${{ steps.frontend_cov.outputs.pct }}%
-          valColorRange: ${{ steps.frontend_cov.outputs.pct }}
-          minColorRange: 50
-          maxColorRange: 90
+          name: frontend-coverage
+          path: frontend/coverage/coverage-summary.json
+          retention-days: 1
+          if-no-files-found: error
 
   # The frontend's API types (frontend/src/api/schema.d.ts) are generated from
   # the backend's OpenAPI schema. Regenerate them and fail if the committed copy
@@ -206,10 +178,6 @@ jobs:
   api-types:
     name: API types up to date
     runs-on: ubuntu-latest
-    # See the frontend job: skip the redundant `pull_request` run for `dev`.
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.ref != 'dev'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -241,11 +209,6 @@ jobs:
   backend:
     name: Backend lint + test
     runs-on: ubuntu-latest
-    # See the frontend job: skip the redundant `pull_request` run for the
-    # `dev -> main` PR, which is already covered by the `push` run on `dev`.
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.ref != 'dev'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -258,11 +221,20 @@ jobs:
       # renderer (see backend/tests/community_addons.py). Without this checkout
       # they skip, and REQUIRE_COMMUNITY_ADDONS below turns those skips into a
       # failure, so a missing or renamed path can't hide them again.
+      #
+      # Pinned to a commit: the tests run that repo's add-on scripts, so what
+      # runs here is a reviewed snapshot rather than whatever its default branch
+      # holds at the time. To bump it, review the community repo's changes since
+      # this commit, then take its current head with
+      #   git ls-remote https://github.com/grimoire-codex/community-add-ons refs/heads/main
+      # (docs/pipelines.md, "Community add-on contract tests").
       - name: Check out community add-ons
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: grimoire-codex/community-add-ons
+          ref: 0c97dc5d6eab7317f29f99ae40bdd21b2494a1ba
           path: community-add-ons
+          persist-credentials: false
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -309,26 +281,85 @@ jobs:
           git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.ref }}"
           python backend/scripts/check_coverage.py
 
-      # See the frontend job: publish a coverage badge on push to main only.
-      # Reads the total line-coverage % from coverage.py's JSON report and writes
-      # it to a Shields.io endpoint gist. Requires GIST_SECRET + BACKEND_COVERAGE_GIST_ID.
-      - name: Extract backend coverage %
+      # See the frontend job: the coverage-badges job publishes the badge.
+      - name: Upload coverage report for the badge
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        id: backend_cov
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backend-coverage
+          path: coverage.json
+          retention-days: 1
+          if-no-files-found: error
+
+  # Publishes the README's coverage badges on a push to main, so they track the
+  # released code. It is the only job holding a secret (GIST_SECRET, a token
+  # scoped to gists), and it runs no code from the repository: it checks
+  # nothing out, only downloads the two coverage reports the test jobs upload,
+  # reads one number from each and writes it to a Shields.io endpoint gist.
+  # Each badge updates only when its own tests passed. Needs the GIST_SECRET
+  # secret and the BACKEND_/FRONTEND_COVERAGE_GIST_ID variables.
+  coverage-badges:
+    name: Coverage badges
+    runs-on: ubuntu-latest
+    needs: [frontend, backend]
+    if: >-
+      !cancelled() &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions: {}
+    steps:
+      - name: Download frontend coverage
+        if: needs.frontend.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: frontend-coverage
+          path: frontend-coverage
+
+      - name: Download backend coverage
+        if: needs.backend.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: backend-coverage
+          path: backend-coverage
+
+      # float() means only a number can reach the badge, whatever the file holds.
+      - name: Extract coverage %
+        id: cov
+        env:
+          FRONTEND_OK: ${{ needs.frontend.result == 'success' }}
+          BACKEND_OK: ${{ needs.backend.result == 'success' }}
         run: |
-          pct=$(python -c "import json; print(round(json.load(open('coverage.json'))['totals']['percent_covered'], 1))")
-          echo "pct=${pct}" >> "$GITHUB_OUTPUT"
+          if [ "$FRONTEND_OK" = true ]; then
+            pct=$(python3 -c "import json; print(round(float(json.load(open('frontend-coverage/coverage-summary.json'))['total']['lines']['pct']), 1))")
+            echo "frontend=${pct}" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "$BACKEND_OK" = true ]; then
+            pct=$(python3 -c "import json; print(round(float(json.load(open('backend-coverage/coverage.json'))['totals']['percent_covered']), 1))")
+            echo "backend=${pct}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update frontend coverage badge
+        if: needs.frontend.result == 'success'
+        uses: schneegans/dynamic-badges-action@28b0fa8bdeb46170ac397105ece0c1fe58f68910 # v1.9.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: ${{ vars.FRONTEND_COVERAGE_GIST_ID }}
+          filename: grimoire-frontend-coverage.json
+          label: frontend coverage
+          message: ${{ steps.cov.outputs.frontend }}%
+          valColorRange: ${{ steps.cov.outputs.frontend }}
+          minColorRange: 50
+          maxColorRange: 90
 
       - name: Update backend coverage badge
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: needs.backend.result == 'success'
         uses: schneegans/dynamic-badges-action@28b0fa8bdeb46170ac397105ece0c1fe58f68910 # v1.9.0
         with:
           auth: ${{ secrets.GIST_SECRET }}
           gistID: ${{ vars.BACKEND_COVERAGE_GIST_ID }}
           filename: grimoire-backend-coverage.json
           label: backend coverage
-          message: ${{ steps.backend_cov.outputs.pct }}%
-          valColorRange: ${{ steps.backend_cov.outputs.pct }}
+          message: ${{ steps.cov.outputs.backend }}%
+          valColorRange: ${{ steps.cov.outputs.backend }}
           minColorRange: 50
           maxColorRange: 90
 
@@ -341,9 +372,6 @@ jobs:
   image-changes:
     name: Image inputs changed
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.ref != 'dev'
     outputs:
       changed: ${{ steps.diff.outputs.changed }}
     steps:
@@ -351,7 +379,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Every push to main/dev builds the image. A PR does when it touches what
+      # Every push to main builds the image. A PR does when it touches what
       # goes into it: the Dockerfile, dependencies, backend code (the build runs
       # the app's start-up to warm its bytecode) or this workflow. Frontend
       # source, tests and docs are covered by the jobs above.

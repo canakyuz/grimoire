@@ -6,18 +6,20 @@ IdP (Keycloak, Authentik, Authelia, Auth0, Okta, etc.).
 The IdP is configured at runtime via Settings → Authentication. Each individual
 field can be locked by an environment variable; see backend/config.py.
 """
+import hmac
 import json
 import secrets
 from typing import Optional
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import Depends, HTTPException, Query, Request
+from fastapi import Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from ...auth import (
     CurrentUser,
+    cookie_secure,
     create_token,
     require_admin,
     set_auth_cookie,
@@ -27,6 +29,7 @@ from ...security import limiter
 from ...sessions import create_session
 from ...services.user_activity import note_sign_in
 from ...config import get_db
+from ..auth._helpers import client_ip, client_user_agent
 from ..settings._helpers import (
     _get_raw,
     oidc_effective,
@@ -47,12 +50,52 @@ from ._helpers import (
     logger,
 )
 from ._schemas import DiscoverRequest
+from ._state import _STATE_TTL
 
 
 # Starting a sign-in stores state server-side before anything is checked, so
 # it is rate limited per address. Generous: auto-launch and a retry or two are
 # a handful of calls.
 OIDC_LOGIN_RATE_LIMIT = "30/minute"
+
+# Ties a sign-in to the browser that started it. The state in the callback URL
+# alone would let anyone who started a sign-in hand the unused callback link to
+# someone else, signing them in to the starter's account. Lax so the IdP's
+# top-level redirect back carries it; scoped to the OIDC routes, and as
+# short-lived as the state itself.
+OIDC_FLOW_COOKIE = "grimoire_oidc_flow"
+OIDC_FLOW_COOKIE_PATH = "/api/auth/openid"
+
+
+def _set_flow_cookie(response: Response, value: str, request: Request) -> None:
+    response.set_cookie(
+        OIDC_FLOW_COOKIE,
+        value,
+        max_age=_STATE_TTL,
+        httponly=True,
+        secure=cookie_secure(request),
+        samesite="lax",
+        path=OIDC_FLOW_COOKIE_PATH,
+    )
+
+
+def _clear_flow_cookie(response: Response, request: Optional[Request]) -> None:
+    response.delete_cookie(
+        OIDC_FLOW_COOKIE,
+        httponly=True,
+        secure=cookie_secure(request),
+        samesite="lax",
+        path=OIDC_FLOW_COOKIE_PATH,
+    )
+
+
+def _same_browser(request: Request, saved: dict) -> bool:
+    """Whether this callback comes from the browser that started the sign-in."""
+    expected = saved.get("browser")
+    presented = request.cookies.get(OIDC_FLOW_COOKIE)
+    if not isinstance(expected, str) or not expected or not presented:
+        return False
+    return hmac.compare_digest(expected.encode(), presented.encode())
 
 
 def discover(data: DiscoverRequest, _: CurrentUser = Depends(require_admin)):
@@ -108,10 +151,16 @@ def oidc_login(
 
     state = secrets.token_urlsafe(24)
     nonce = secrets.token_urlsafe(24)
+    browser = secrets.token_urlsafe(32)
     verifier, challenge = _pkce_pair()
     _state_store.put(
         state,
-        {"nonce": nonce, "code_verifier": verifier, "return_to": _safe_return_to(return_to)},
+        {
+            "nonce": nonce,
+            "code_verifier": verifier,
+            "return_to": _safe_return_to(return_to),
+            "browser": browser,
+        },
     )
 
     scopes = ["openid", "email", "profile"]
@@ -134,7 +183,9 @@ def oidc_login(
         "code_challenge": challenge,
         "code_challenge_method": "S256",
     }
-    return RedirectResponse(f"{auth_url}?{urlencode(params)}", status_code=302)
+    resp = RedirectResponse(f"{auth_url}?{urlencode(params)}", status_code=302)
+    _set_flow_cookie(resp, browser, request)
+    return resp
 
 
 # What the login page shows for each standard OAuth 2.0 / OIDC error code the
@@ -198,6 +249,20 @@ def oidc_callback(
     error_description: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
+    resp = _finish_sign_in(request, code, state, error, error_description, db)
+    # The flow cookie is spent whichever way the sign-in went.
+    _clear_flow_cookie(resp, request)
+    return resp
+
+
+def _finish_sign_in(
+    request: Request,
+    code: Optional[str],
+    state: Optional[str],
+    error: Optional[str],
+    error_description: Optional[str],
+    db: Session,
+) -> RedirectResponse:
     # The state is checked (and spent) before anything else, the IdP's error
     # included, so a callback link this server did not start a sign-in for is
     # refused the same way whatever else it carries.
@@ -206,6 +271,11 @@ def oidc_callback(
         return _redirect_with_error(
             "invalid or expired login state" if state else "missing code or state"
         )
+    if not _same_browser(request, saved):
+        # A callback link opened in a browser other than the one that went to
+        # the provider. Its state is spent, so the link is now dead.
+        logger.warning("OIDC callback refused: it did not come from the browser that started it")
+        return _redirect_with_error("sign-in was started in another browser - please try again")
     if error:
         # IdP refused before we even got a code (user denied, mis-config, etc.)
         logger.info("OIDC provider returned %s: %s", error, error_description or "")
@@ -290,7 +360,10 @@ def oidc_callback(
         db,
         user.id,
         origin="oidc",
-        user_agent=request.headers.get("User-Agent") if request else None,
+        user_agent=client_user_agent(request),
+        # Read like a password sign-in's, so Active Sessions shows where it
+        # came from (X-Forwarded-For only from a trusted proxy).
+        ip_address=client_ip(request),
     )
     note_sign_in(user.username, "oidc")
     token = create_token(user.id, user.username, user.role, session_id=session.id)

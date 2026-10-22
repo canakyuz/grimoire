@@ -19,6 +19,7 @@ from ...config import CAMPAIGN_UPLOAD_DIR, logger, get_db
 from ...file_cache import cached_file_response
 from ...models import Campaign, CampaignMember
 from ...security import INERT_DOCUMENT_HEADERS
+from ...services.upload_images import UPLOAD_IMAGE_FORMATS, is_upload_image, open_upload_image
 from ._schemas import BannerFocusIn, BannerSourceIn
 from ._helpers import (
     assert_can_manage,
@@ -104,12 +105,13 @@ def _upload_media_type(filename: str) -> str:
 
 
 def _validate_image(data: bytes) -> None:
-    """Verify the bytes really decode as an image (reject disguised files)."""
-    from PIL import Image
+    """Verify the bytes really decode as a PNG, JPEG, WebP or GIF.
 
-    try:
-        Image.open(io.BytesIO(data)).verify()
-    except Exception:
+    Held to the formats the upload routes accept, so a file in some other
+    format Pillow can read (TIFF, PPM, ...) sent under an image Content-Type
+    is refused rather than decoded and thumbnailed.
+    """
+    if not is_upload_image(data):
         raise HTTPException(400, "File is not a valid image")
 
 
@@ -120,12 +122,18 @@ def _validate_image(data: bytes) -> None:
 _BANNER_THUMB_MAX_W = 1000
 
 
-def _make_banner_thumb(data: bytes) -> Optional[bytes]:
-    """Downscale banner bytes to a <=1000px-wide WebP. Returns None on failure."""
+def _make_banner_thumb(
+    data: bytes, formats: Optional[tuple[str, ...]] = UPLOAD_IMAGE_FORMATS
+) -> Optional[bytes]:
+    """Downscale banner bytes to a <=1000px-wide WebP. Returns None on failure.
+
+    ``formats`` bounds which decoders may run: the upload formats by default,
+    or a picked source's own (``image_source.source_formats``).
+    """
     from PIL import Image
 
     try:
-        img: Image.Image = Image.open(io.BytesIO(data))
+        img: Image.Image = open_upload_image(data, formats)
         if img.mode not in ("RGB", "RGBA"):
             img = img.convert("RGB")
         # Only ever scale down — never upscale a banner that's already small.
@@ -251,7 +259,7 @@ def set_banner_from_source(
     own access rules, so the picker cannot reach an asset the user could not
     already open.
     """
-    from ...services.image_source import load_source_image, validate_image
+    from ...services.image_source import load_source_image, source_formats, validate_image
 
     c = get_campaign_or_404(db, campaign_id)
     assert_can_manage(c, current_user, db)
@@ -263,11 +271,12 @@ def set_banner_from_source(
         body.source_id,
         campaign_id=campaign_id,
     )
-    validate_image(data)
+    formats = source_formats(body.source_type)
+    validate_image(data, formats)
 
     # Everything is normalised to WebP: a source may be any format the library
     # holds, and the stored extension only has to describe these bytes.
-    normalised = _make_banner_thumb(data)
+    normalised = _make_banner_thumb(data, formats)
     if normalised is None:
         raise HTTPException(400, "Source image could not be processed")
     filename = _store_banner(c, normalised, ".webp")

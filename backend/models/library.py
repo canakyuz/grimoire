@@ -78,8 +78,12 @@ class GameSystem(Base):
     # "parent" sets its children's parent_system; the rest hold independent
     # systems rather than variants of the shelf.
     container_kind: Mapped[Optional[str]] = mapped_column(String(20), default="")
-    # Set on the *children* of a container, pointing at the container row.
-    parent_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("game_systems.id"), nullable=True, index=True)
+    # Set on the *children* of a container, pointing at the container row. A
+    # soft reference, not a foreign key, as migration 0013 created it: adding one
+    # means rebuilding game_systems, which books and campaigns reference, and
+    # the scanner keeps the link consistent itself - it re-points children
+    # before dropping a system, and refuses to prune one that has any.
+    parent_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     # True once a user has renamed the system through the UI. The scanner keys
     # systems off their folder-derived slug and only writes ``name`` while this
     # is false, so a rename ("Dungeons & Dragons 2e" -> "Advanced Dungeons &
@@ -102,10 +106,13 @@ class GameSystem(Base):
 
     books: Mapped[list["Book"]] = relationship("Book", back_populates="game_system", cascade="all, delete-orphan")
     parent: Mapped[Optional["GameSystem"]] = relationship(
-        "GameSystem", remote_side=[id], back_populates="children"
+        "GameSystem",
+        primaryjoin="foreign(GameSystem.parent_id) == remote(GameSystem.id)",
+        back_populates="children",
     )
     children: Mapped[list["GameSystem"]] = relationship(
         "GameSystem",
+        primaryjoin="GameSystem.id == remote(foreign(GameSystem.parent_id))",
         back_populates="parent",
         cascade="all, delete-orphan",
         single_parent=True,
@@ -358,7 +365,8 @@ class License(Base):
     __tablename__ = "licenses"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    # 150, as migration 0006 created it alongside parent_systems.
+    name: Mapped[str] = mapped_column(String(150), unique=True, nullable=False)
     is_default: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
     sort_order: Mapped[Optional[int]] = mapped_column(Integer, default=0)
 

@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 from ..config import THUMB_DIR
 from ..indexer import archive_ext, slugify
 from ..models import Audio, Book, CampaignFile, GenericMap, Token
+from .upload_images import UPLOAD_IMAGE_FORMATS, is_upload_image
 
 # Source kinds the picker may reference. "campaign_file" is scoped to one
 # campaign and is only offered where a campaign is in context (the banner).
@@ -187,11 +188,24 @@ def source_ext(data: bytes) -> str:
     return {"JPEG": ".jpg", "WEBP": ".webp", "GIF": ".gif", "PNG": ".png"}.get(fmt, ".png")
 
 
-def validate_image(data: bytes) -> None:
-    """Verify bytes really decode as an image (reject disguised files)."""
-    from PIL import Image
+def source_formats(source_type: str) -> Optional[tuple[str, ...]]:
+    """The Pillow formats a picked source's bytes may decode as.
 
-    try:
-        Image.open(io.BytesIO(data)).verify()
-    except Exception:
-        raise HTTPException(400, "File is not a valid image") from None
+    A campaign file is something a user uploaded (labelled an image by its
+    name alone), so it is held to the upload formats. Everything else is the
+    library's own art or a thumbnail Grimoire generated, which may be any format
+    the library supports (BMP and TIFF maps included), so it is not restricted.
+    """
+    return UPLOAD_IMAGE_FORMATS if source_type == "campaign_file" else None
+
+
+def validate_image(
+    data: bytes, formats: Optional[tuple[str, ...]] = UPLOAD_IMAGE_FORMATS
+) -> None:
+    """Verify bytes really decode as an image in ``formats`` (reject disguised files).
+
+    Defaults to the upload formats; pass ``source_formats(...)`` for a picked
+    source, or ``None`` for no restriction.
+    """
+    if not is_upload_image(data, formats):
+        raise HTTPException(400, "File is not a valid image")

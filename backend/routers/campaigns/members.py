@@ -15,8 +15,8 @@ from ...models import CampaignMember, User
 from ._helpers import (
     assert_can_manage,
     assert_not_archived,
-    delete_guest_user,
     get_campaign_or_404,
+    release_guest_membership,
     user_has_campaign_access,
 )
 from ._schemas import InvitePayload, MemberStatusUpdate
@@ -134,11 +134,12 @@ def remove_member(
     )
     if member:
         was_guest = bool(member.is_guest)
+        guest_code = member.guest_code
         db.delete(member)
-        # A guest is single-campaign, so removing them from it leaves nothing
-        # behind — delete the backing guest account and its contributions too.
+        # A guest with no other campaign has nothing left once removed, so its
+        # account goes too; a merged guest keeps its other campaigns.
         if was_guest:
-            delete_guest_user(db, user_id)
+            release_guest_membership(db, user_id, guest_code, by_guest=is_self)
         db.commit()
 
 

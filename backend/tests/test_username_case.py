@@ -108,3 +108,132 @@ def test_setup_recount_refuses_a_second_admin(client, monkeypatch):
         assert db.query(User).filter_by(role="admin").count() >= 1
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# Usernames outside ASCII (SQLite's own lower() only folds A-Z)
+# ---------------------------------------------------------------------------
+
+
+def _accented():
+    # A capital outside ASCII first, so SQLite's lower() would leave it alone.
+    return f"Émile{uuid.uuid4().hex[:6]}"
+
+
+def _sign_in(client, username, password, ip):
+    return client.post(
+        "/api/auth/login",
+        json={"username": username, "password": password},
+        headers={"X-Forwarded-For": ip},
+    )
+
+
+def test_a_non_ascii_username_signs_in_in_any_case(client, admin_headers):
+    name = _accented()
+    password = "accent-test-passphrase"
+    created = client.post(
+        "/api/users",
+        json={"username": name, "password": password, "role": "player"},
+        headers=admin_headers,
+    )
+    assert created.status_code in (200, 201), created.text
+    for i, typed in enumerate((name, name.lower(), name.upper(), f" {name.casefold()} ")):
+        resp = _sign_in(client, typed, password, f"203.0.113.{170 + i}")
+        assert resp.status_code == 200, (typed, resp.text)
+        assert resp.json()["user"]["username"] == name
+
+
+def test_a_non_ascii_case_variant_is_taken(client, admin_headers):
+    name = _accented()
+    body = {"username": name, "password": "accent-test-passphrase", "role": "player"}
+    assert client.post("/api/users", json=body, headers=admin_headers).status_code in (200, 201)
+    again = client.post(
+        "/api/users", json={**body, "username": name.lower()}, headers=admin_headers
+    )
+    assert again.status_code == 400
+    assert "already exists" in again.json()["detail"]
+
+
+def test_compatibility_forms_count_as_the_same_name():
+    from backend.usernames import fold_username
+
+    # NFKC: the "ﬁ" ligature and full-width letters are the plain letters.
+    assert fold_username("ﬁona") == fold_username("FIONA") == "fiona"
+    assert fold_username("ＡＢＣ") == "abc"
+    assert fold_username("Straße") == fold_username("STRASSE")
+    assert fold_username(None) is None
+
+
+def test_fold_function_is_registered_on_connections():
+    import sqlite3
+
+    from backend import sql_functions
+
+    raw = sqlite3.connect(":memory:")
+    try:
+        sql_functions.register(raw)
+        row = raw.execute("SELECT grimoire_fold('ÉMILE'), grimoire_fold(NULL), grimoire_fold(7)")
+        assert row.fetchone() == ("émile", None, 7)
+    finally:
+        raw.close()
+    db = SessionLocal()
+    try:
+        # Every app connection has it, and the built-in lower() is untouched.
+        row = db.execute(text("SELECT grimoire_fold('Ä'), lower('Ä')")).one()
+        assert tuple(row) == ("ä", "Ä")
+    finally:
+        db.close()
+
+
+def test_blank_username_matches_nothing():
+    db = SessionLocal()
+    try:
+        assert find_by_username(db, "   ") is None
+    finally:
+        db.close()
+
+
+def test_names_that_already_collide_resolve_deterministically():
+    """Accounts created before folding existed may differ only by an accented
+    capital. Sign-in prefers the exact spelling, then the one SQLite's lower()
+    used to find, so each still reaches its own account."""
+    from backend.usernames import find_by_username
+
+    base = uuid.uuid4().hex[:6]
+    upper, lower = f"Élan{base}", f"élan{base}"
+    db = SessionLocal()
+    try:
+        first = User(username=upper, role="player")
+        second = User(username=lower, role="player")
+        db.add_all([first, second])
+        db.commit()
+        assert find_by_username(db, upper).id == first.id
+        assert find_by_username(db, lower).id == second.id
+        # Neither spelled exactly: the old lower() match wins ("élan…" here).
+        assert find_by_username(db, f"éLAN{base}").id == second.id
+        # Repeatable when nothing tells them apart either.
+        picks = {find_by_username(db, f"ÉLAN{base}".upper()).id for _ in range(3)}
+        assert len(picks) == 1
+        db.delete(first)
+        db.delete(second)
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_oidc_username_matching_folds_too(client, admin_setup):
+    from backend.routers.oidc._helpers import _resolve_user
+
+    name = _accented()
+    db = SessionLocal()
+    try:
+        existing = User(username=name, role="player")
+        db.add(existing)
+        db.commit()
+        eff = {"oidc_match_by": "username", "oidc_groups_claim": "", "oidc_permissions_claim": "",
+               "oidc_auto_register": False}
+        sub = f"sub-{uuid.uuid4().hex[:8]}"
+        user = _resolve_user(db, {"sub": sub, "preferred_username": name.lower()}, eff)
+        assert user.id == existing.id
+    finally:
+        db.close()

@@ -6,6 +6,7 @@ Every call is synchronous, bounded (timeout, response size) and raises
 """
 import json
 from typing import Any, Optional
+from urllib.parse import quote
 
 import httpx
 from fastapi import HTTPException
@@ -98,6 +99,9 @@ def request(
                 status = response.status_code
     except httpx.TimeoutException as exc:
         raise CodexError("Grimoire Codex DB did not answer in time") from exc
+    except httpx.InvalidURL as exc:
+        # Not an ``HTTPError``: without this a malformed address would be a 500.
+        raise CodexError("Could not reach Grimoire Codex DB: the request address is not valid") from exc
     except httpx.HTTPError as exc:
         raise CodexError(f"Could not reach Grimoire Codex DB: {exc}") from exc
 
@@ -123,10 +127,21 @@ def search(settings: CodexSettings, query: str, entity_type: str, limit: int = 1
     return items
 
 
+def _segment(value: str) -> str:
+    """``value`` as one encoded URL path segment, so it can never leave its place in the path.
+
+    Every reserved character (``/``, ``?``, ``#``, whitespace, control characters) is
+    percent-encoded; ``.`` and ``..`` stay unreserved under encoding, so they are refused.
+    """
+    if value in ("", ".", ".."):
+        raise CodexError("That is not a Grimoire Codex DB record id", 400)
+    return quote(value, safe="")
+
+
 def export(settings: CodexSettings, entity_type: str, codex_id: str) -> dict[str, Any]:
     """A book or system in Grimoire's own field names (``GET /books/{id}/grimoire``)."""
     path = "books" if entity_type == "book" else "systems"
-    result: dict[str, Any] = request(settings, "GET", f"/{path}/{codex_id}/grimoire")
+    result: dict[str, Any] = request(settings, "GET", f"/{path}/{_segment(codex_id)}/grimoire")
     return result
 
 

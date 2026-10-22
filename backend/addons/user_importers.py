@@ -21,6 +21,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from ..models import UserImporter
+from ..services import untrusted_yaml
 from . import credentials as source_credentials
 from . import install as server_install
 from .constants import external_installs_enabled
@@ -82,7 +83,7 @@ def install_for_user(
     body = server_install._fetch_text(urljoin(source, entry.path), source_credentials.load(db))
     server_install._verify(body, entry.sha256, "importer manifest")
     try:
-        raw = yaml.safe_load(body)
+        raw = untrusted_yaml.safe_load(body)
     except yaml.YAMLError as exc:
         raise AddonError(f"'{importer_id}' has an unreadable manifest: {exc}") from exc
     # The index's `user_installable` only decided what to offer; this is the

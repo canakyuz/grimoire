@@ -6,7 +6,6 @@ same kind of thing and should behave the same way. Portraits live in their own
 directory rather than under a campaign's uploads, since a character may have no
 campaign.
 """
-import io
 import os
 
 from fastapi import Depends, File, HTTPException, Request, UploadFile
@@ -16,6 +15,7 @@ from ...auth import CurrentUser, get_current_user
 from ...config import CHARACTER_PORTRAIT_DIR, get_db
 from ...file_cache import cached_file_response
 from ...models import Character
+from ...services.upload_images import is_upload_image
 # The image types a portrait may be, mirroring campaign character art. Shared
 # with importing, which accepts a portrait embedded in another tool's export.
 from ...services.characters.importing import MAX_PORTRAIT_BYTES, PORTRAIT_TYPES
@@ -41,14 +41,11 @@ def read_image(upload: UploadFile, what: str = "A portrait") -> tuple[bytes, str
     if not data:
         raise HTTPException(status_code=400, detail="That file is empty")
 
-    # Verify the bytes really decode as an image, so a renamed executable
-    # cannot be stored and served back as one.
-    from PIL import Image
-
-    try:
-        Image.open(io.BytesIO(data)).verify()
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail="That file is not an image") from exc
+    # Verify the bytes really decode as one of the accepted image formats, so
+    # neither a renamed executable nor a file in some other format Pillow can
+    # read (TIFF, PPM, ...) is stored and served back as one.
+    if not is_upload_image(data):
+        raise HTTPException(status_code=400, detail="That file is not an image")
     return data, PORTRAIT_TYPES[upload.content_type]
 
 

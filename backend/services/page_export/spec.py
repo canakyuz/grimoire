@@ -40,6 +40,12 @@ MAX_REGIONS = 200
 # One output image. 50 MP is a 300 dpi tabloid spread with room to spare, and
 # keeps a single render's buffers in the low hundreds of megabytes.
 MAX_OUTPUT_PIXELS = 50_000_000
+# Every image in one export together. The files are encoded, zipped and sent
+# from memory, so the total, not just each image, decides what an export costs.
+# 250 MP is a 28-page chapter of letter or A4 pages at 300 dpi, all 100 pages
+# allowed at 150 dpi, or 7 pages at 600 dpi; past it, a PDF (which copies the
+# pages rather than drawing them) or a lower resolution is the better export.
+MAX_TOTAL_PIXELS = 250_000_000
 
 
 class ExportError(ValueError):

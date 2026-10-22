@@ -9,8 +9,8 @@ own `GITHUB_TOKEN` (the publishing jobs request `packages: write`), so it needs 
 
 The branch model is: feature branches off `main`, merged back into `main` by pull request.
 `main` is what `:nightly` is built from, and releases are cut from it by pushing a version
-tag. (The workflows still name a `dev` branch from an older integration-branch model - see
-[below](#note-the-legacy-dev-branch) - but nothing targets it any more.)
+tag. (Grimoire once integrated feature branches on a `dev` branch and merged `dev → main` for
+releases; that flow is retired and the workflows no longer refer to it.)
 
 ---
 
@@ -18,8 +18,8 @@ tag. (The workflows still name a `dev` branch from an older integration-branch m
 
 | Workflow | File | Trigger | Produces |
 |---|---|---|---|
-| **CI** | [`ci.yml`](../.github/workflows/ci.yml) | Push to `main`/`dev`, and pull requests | Lint + test + coverage validation, and a smoke test of both image targets (nothing published) |
-| **CodeQL** | [`codeql.yml`](../.github/workflows/codeql.yml) | Push to `main`, PRs to `main`/`dev`, weekly cron | Security analysis (Python + JS/TS) |
+| **CI** | [`ci.yml`](../.github/workflows/ci.yml) | Push to `main`, and pull requests | Lint + test + coverage validation, and a smoke test of both image targets (nothing published) |
+| **CodeQL** | [`codeql.yml`](../.github/workflows/codeql.yml) | Push to `main`, PRs to `main`, weekly cron | Security analysis (Python + JS/TS) |
 | **Nightly** | [`nightly.yml`](../.github/workflows/nightly.yml) | Daily at 07:00 UTC (or manually), off `main` | `:nightly` multi-arch Docker image |
 | **Release** | [`release.yml`](../.github/workflows/release.yml) | Push a `vX.Y.Z` tag | Versioned + `:latest` images (OCR & slim) + GitHub Release |
 
@@ -27,7 +27,7 @@ tag. (The workflows still name a `dev` branch from an older integration-branch m
 
 ## CI (`ci.yml`)
 
-Runs on every push to `main`/`dev` and on all pull requests. Validates the change without
+Runs on every push to `main` and on all pull requests. Validates the change without
 publishing anything. The jobs run in parallel, and a newer push to the same PR cancels the
 run in progress. Branch protection requires **Frontend build + test** and **Backend lint +
 test**.
@@ -43,9 +43,10 @@ test**.
   spreads across runners where it can't within one. Each shard uploads a blob report.
 - **Frontend build + test:** the required check. It merges the shards' blob reports
   (`vitest --merge-reports --coverage`), which rebuilds the same `coverage-summary.json` an
-  unsharded run writes, then runs the coverage gate and, on `main`, the badge. It always
+  unsharded run writes, then runs the coverage gate. It always
   runs and fails if the lint/build job or any shard failed, since a required check that was
-  merely skipped would count as passing.
+  merely skipped would count as passing. On `main` it uploads the coverage summary for the
+  [badge](#coverage-badges).
 
 **API types up to date:** regenerates `frontend/src/api/schema.d.ts` from the backend's
 OpenAPI schema (`npm run api:types:check`) and fails if the committed copy differs. A backend
@@ -73,7 +74,7 @@ comes up healthy as a non-root user, first-run setup works, the scan indexes eve
 PDF is searchable and renders, thumbnails are made, and `unar`, `ffmpeg` and (OCR only)
 `tesseract` run. It then makes `/data` root-owned, as an install upgraded from the old
 root-run image has it, restarts, and checks the data is handed over. Every push to
-`main`/`dev` runs it; a PR does when it touches the Dockerfile, dependencies, backend code or
+`main` runs it; a PR does when it touches the Dockerfile, dependencies, backend code or
 `ci.yml`. Not a required check, but it is the only one that builds `slim` before a release.
 Run it locally with `python3 backend/scripts/smoke_test_image.py <image> --target slim|ocr`.
 
@@ -81,8 +82,26 @@ Run it locally with `python3 backend/scripts/smoke_test_image.py <image> --targe
 [`grimoire-codex/community-add-ons`](https://github.com/grimoire-codex/community-add-ons)
 (scrapers, character importers, sheets, content packs) and check them against this repo's
 interpreter, manifest models, importer and sheet renderer. A change on either side can break
-a published add-on without anything else failing, so the backend job checks that repo's
-`main` out beside the code and points `COMMUNITY_ADDONS_PATH` at it.
+a published add-on without anything else failing, so the backend job checks that repo out
+beside the code and points `COMMUNITY_ADDONS_PATH` at it.
+
+The checkout is pinned to a commit (`ref:` on the "Check out community add-ons" step in
+`ci.yml`) rather than following the community repo's `main`, because the tests run the
+add-ons' scripts: CI runs a snapshot someone has looked at, not whatever was merged there
+last. That also means a new or changed community add-on is only covered once the pin moves.
+Bump it when the community repo has changes worth testing against, or in the same PR as a
+Grimoire change that needs a matching add-on change:
+
+1. Review what changed in `grimoire-codex/community-add-ons` since the pinned commit
+   (`https://github.com/grimoire-codex/community-add-ons/compare/<pinned sha>...main`),
+   scripts especially.
+2. Take its current head:
+   `git ls-remote https://github.com/grimoire-codex/community-add-ons refs/heads/main`.
+3. Put that full 40-character SHA in the step's `ref:`. Dependabot does not track it.
+
+[`backend/tests/test_workflow_structure.py`](../backend/tests/test_workflow_structure.py)
+fails if a job that can read a repository secret also checks out another repository without
+a full commit SHA, and if any job other than **Coverage badges** references a secret.
 
 Locally the tests find a checkout at `../community-add-ons` (or wherever
 `COMMUNITY_ADDONS_PATH` points) and skip without one, so cloning Grimoire alone still gives
@@ -99,12 +118,20 @@ line coverage.
 
 ### Coverage badges
 
-On **push to `main` only**, each job extracts its total line-coverage % (frontend from
-`coverage/coverage-summary.json`, backend from coverage.py's `coverage.json`) and publishes it
-to a [Shields.io endpoint](https://shields.io/badges/endpoint-badge) badge stored in a GitHub
-Gist via [`schneegans/dynamic-badges-action`](https://github.com/schneegans/dynamic-badges-action).
+On **push to `main` only**, the **Frontend build + test** and **Backend lint + test** jobs
+upload their coverage reports (frontend `coverage/coverage-summary.json`, backend coverage.py's
+`coverage.json`) as workflow artifacts, and a separate **Coverage badges** job publishes them.
+It reads the total line-coverage % from each and writes it to a
+[Shields.io endpoint](https://shields.io/badges/endpoint-badge) badge stored in a GitHub Gist
+via [`schneegans/dynamic-badges-action`](https://github.com/schneegans/dynamic-badges-action).
 No third-party service ingests the code - the badge JSON lives in a gist you own. The badges
 render in the [README](../README.md) badge row.
+
+**Coverage badges** is the only CI job given `GIST_SECRET`. It checks nothing out and runs no
+repository code - it downloads the two reports, takes one number from each and calls the badge
+action - with an empty `permissions:` block, so the jobs that run the test suites (and the
+community add-ons' scripts) never have the token. Each badge updates only when its own tests
+passed, so a backend failure doesn't hold back the frontend badge.
 
 **One-time setup** (already done for this repo; documented for forks):
 
@@ -119,33 +146,13 @@ render in the [README](../README.md) badge row.
 4. In the [README](../README.md), replace the `BACKEND_COVERAGE_GIST_ID` /
    `FRONTEND_COVERAGE_GIST_ID` placeholders in the two coverage-badge URLs with the gist ID.
 
-### Note: the legacy `dev` branch
-
-Grimoire used to integrate feature branches on `dev` and merge `dev → main` for releases. That
-flow is retired - PRs go straight to `main`, and the coverage and TypeScript gates fall back to
-`origin/main`, then `main`, when `$BASE_REF` is unset - but `ci.yml` still triggers on pushes
-to `dev`, and CodeQL on PRs targeting it.
-
-The jobs also keep a guard from that time. A direct push to `dev` while the `dev → main` pull
-request was open would make CI run twice for the same commit - once for the `push` event and
-once for the `pull_request` event - so each CI job skips the `pull_request` run when the PR's
-head branch is `dev`:
-
-```yaml
-if: >-
-  github.event_name != 'pull_request' ||
-  github.event.pull_request.head.ref != 'dev'
-```
-
-The `push` run on `dev` already covers that commit, so nothing is lost.
-
 ---
 
 ## CodeQL (`codeql.yml`)
 
 GitHub's static security analysis, run against both languages in the repo (Python and
 JavaScript/TypeScript) with the `security-extended` query pack. It runs on pushes to `main`,
-on pull requests targeting `main` or `dev`, and on a weekly schedule (Mondays at 08:00 UTC).
+on pull requests targeting `main`, and on a weekly schedule (Mondays at 08:00 UTC).
 Findings surface in the repository's **Security → Code scanning** tab. No action is needed
 unless it flags something.
 

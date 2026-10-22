@@ -40,7 +40,8 @@ from ...http_headers import content_disposition
 from ... import config
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
-from ...models import GameSystem, WikiPage, WikiTemplate
+from ...models import WikiPage, WikiTemplate
+from ...services import untrusted_yaml
 from ...services import wiki_template_catalogue as catalogue
 from ._frontmatter import (
     clean_page_type,
@@ -48,7 +49,7 @@ from ._frontmatter import (
     compose,
     split_frontmatter,
 )
-from ._helpers import assert_can_manage, get_campaign_or_404
+from ._helpers import assert_can_manage, get_campaign_or_404, visible_campaign_system
 from ._schemas import (
     WikiTemplateDefaults,
     WikiTemplateInput,
@@ -157,14 +158,12 @@ def _get_template_or_404(db: Session, campaign_id: str, template_id: str) -> Wik
     return t
 
 
-def _campaign_system(db: Session, c) -> str:
+def _campaign_system(db: Session, c, viewer: CurrentUser) -> str:
     """The campaign's game-system name: the linked system's, else the free-text
-    one. Mirrors ``_campaign_payload``; may be empty."""
-    if c.system_id:
-        sys_obj = db.query(GameSystem).filter_by(id=c.system_id).first()
-        if sys_obj:
-            return sys_obj.name
-    return c.system_name or ""
+    one. Mirrors ``serialize_campaign``, so a linked system ``viewer`` cannot
+    see is left out; may be empty."""
+    system = visible_campaign_system(db, c, viewer)
+    return system.name if system else (c.system_name or "")
 
 
 # --------------------------------------------------------------------------- #
@@ -199,7 +198,7 @@ def list_wiki_templates(
 
     return {
         "templates": [_summary(t) for t in rows],
-        "campaign_system": _campaign_system(db, c),
+        "campaign_system": _campaign_system(db, c, current_user),
         # Drives whether the browser offers the "browse community" tab at all.
         "downloads_enabled": catalogue.downloads_enabled(),
         "categories": categories,
@@ -406,7 +405,7 @@ def _template_from_zip(data: bytes) -> dict:
     fields: dict = {"body": body}
     if manifest_raw:
         try:
-            parsed = yaml.safe_load(manifest_raw.decode("utf-8", "replace"))
+            parsed = untrusted_yaml.safe_load(manifest_raw.decode("utf-8", "replace"))
         except yaml.YAMLError:
             parsed = None
         if isinstance(parsed, dict):
@@ -558,7 +557,7 @@ def browse_wiki_templates(
     return {
         "folders": catalogue.build_tree(doc),
         "downloaded_ids": sorted(owned),
-        "campaign_system": _campaign_system(db, c),
+        "campaign_system": _campaign_system(db, c, current_user),
         "index_url": catalogue.get_index_url(db),
         "default_index_url": config.DEFAULT_WIKI_TEMPLATE_INDEX_URL,
         "is_custom_url": catalogue.is_custom_url(db),

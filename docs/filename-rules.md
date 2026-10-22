@@ -63,7 +63,8 @@ Two more pieces of syntax:
   empty, so a book without a version is named `Crystallica.pdf` rather than `Crystallica (v).pdf`.
 
 Two fields need some text between them (`{title}{year}` is refused - there is no telling where one
-ends), and each field may appear only once. The editor tells you what is wrong as you type.
+ends), each field may appear only once, and a pattern holds at most 20 fields, `{*}` included. The
+editor tells you what is wrong as you type.
 
 ### Reading titles from filenames
 

@@ -96,6 +96,17 @@ class TestFetchJson:
         with pytest.raises(AddonFetchError, match="valid JSON"):
             fetch.fetch_json("https://x/d.json")
 
+    def test_json_too_deep_to_parse_is_reported(self, monkeypatch):
+        _patch_client(monkeypatch, response=_FakeResponse(body=b"[" * 30000))
+        with pytest.raises(AddonFetchError, match="valid JSON"):
+            fetch.fetch_json("https://x/d.json")
+
+    def test_yaml_aliases_are_reported(self, monkeypatch):
+        body = b"a: &a [1, 2]\nb: *a\n"
+        _patch_client(monkeypatch, response=_FakeResponse(body=body))
+        with pytest.raises(AddonFetchError, match="valid JSON"):
+            fetch.fetch_json("https://x/d.yaml")
+
     def test_timeout_is_reported(self, monkeypatch):
         _patch_client(monkeypatch, raises=httpx.TimeoutException("slow"))
         with pytest.raises(AddonFetchError, match="timed out"):

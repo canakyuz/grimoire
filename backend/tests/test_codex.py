@@ -421,6 +421,37 @@ class TestLookup:
         assert r.status_code == 502
         assert r.json()["detail"] == "Down for maintenance"
 
+    @pytest.mark.parametrize("route", ["books", "systems"])
+    @pytest.mark.parametrize(
+        "identity",
+        ["../x", "a/b", "a?b", "a#b", "a\r\nb", "a b c d", ".."],
+    )
+    def test_fetch_rejects_an_identity_that_is_not_a_record_id(
+        self, client, gm_headers, fake, route, identity
+    ):
+        """The id is part of the request path: anything else is refused before Grimoire Codex DB is called."""
+        system = make_game_system()
+        resource_id = make_book(system.id).id if route == "books" else system.id
+        r = client.post(
+            f"/api/{route}/{resource_id}/metadata-fetch",
+            json={"source_id": "grimoire-codex", "identity": identity},
+            headers=gm_headers,
+        )
+        assert r.status_code == 400
+        assert fake.requests == []
+
+    def test_fetch_accepts_a_padded_record_id(self, client, gm_headers, fake):
+        system = make_game_system()
+        fake.on("GET", "/api/v1/systems/sy_dcc001/grimoire", body={"codex_id": "sy_dcc001", "edition": "1e"})
+        r = client.post(
+            f"/api/systems/{system.id}/metadata-fetch",
+            json={"source_id": "grimoire-codex", "identity": " sy_dcc001 "},
+            headers=gm_headers,
+        )
+        assert r.status_code == 200
+        assert r.json()["identity"] == "sy_dcc001"
+        assert [req.url.path for req in fake.requests] == ["/api/v1/systems/sy_dcc001/grimoire"]
+
 
 # --- Sending records -----------------------------------------------------------------------
 
@@ -565,3 +596,37 @@ def test_non_json_and_oversized_responses(fake, monkeypatch):
     fake.on("GET", "/api/v1/me", status=500, body=None)
     with pytest.raises(codex.CodexError, match="HTTP 500"):
         codex_client.me(settings)
+
+
+def test_export_keeps_the_id_inside_its_path_segment(fake):
+    """Whatever id ``export`` is given, it stays one path segment."""
+    settings = codex.CodexSettings(
+        url="https://codex.test", token="cdx_tok", send_hashes=False, locked=frozenset()
+    )
+    for bad in ("", ".", ".."):
+        with pytest.raises(codex.CodexError) as err:
+            codex_client.export(settings, "book", bad)
+        assert err.value.status == 400
+        assert codex.http_error(err.value).status_code == 400
+    assert fake.requests == []
+
+    for raw in ("../x#", "a/b?c=d&", "a\r\nb c"):
+        with pytest.raises(codex.CodexError):
+            codex_client.export(settings, "book", raw)
+    paths = [req.url.raw_path.decode() for req in fake.requests]
+    assert paths == [
+        "/api/v1/books/..%2Fx%23/grimoire",
+        "/api/v1/books/a%2Fb%3Fc%3Dd%26/grimoire",
+        "/api/v1/books/a%0D%0Ab%20c/grimoire",
+    ]
+
+
+def test_an_invalid_address_is_a_codex_error(fake):
+    """httpx raises ``InvalidURL`` (not an ``HTTPError``) for a malformed address; it must not be a 500."""
+    settings = codex.CodexSettings(
+        url="https://codex.test", token="cdx_tok", send_hashes=False, locked=frozenset()
+    )
+    with pytest.raises(codex.CodexError, match="not valid") as err:
+        codex_client.request(settings, "GET", "/books/a\r\nb/grimoire")
+    assert err.value.status is None
+    assert fake.requests == []

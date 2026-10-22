@@ -8,6 +8,7 @@ RS256 ID tokens that Grimoire validates with its normal code path.
 """
 import base64
 import hashlib
+import json
 import time
 import uuid
 import warnings
@@ -210,6 +211,32 @@ class TestMockIdPSignIn:
         assert me.json()["username"] == sub
         assert me.json()["email"] == email
 
+    def test_session_records_the_client_address(self, client, idp):
+        """Active Sessions shows where an SSO sign-in came from, like a
+        password one: the client's address, read through a trusted proxy."""
+        from backend.models import AuthSession
+
+        sub = f"sub-{uuid.uuid4().hex[:8]}"
+        idp.id_claims = {"sub": sub, "preferred_username": sub}
+        start = client.get("/api/auth/openid/login", follow_redirects=False)
+        grant = idp.authorize(start.headers["location"])
+        cb = client.get(
+            "/api/auth/openid/callback",
+            params=grant,
+            headers={"X-Forwarded-For": "198.51.100.23", "User-Agent": "MockBrowser/1.0"},
+            follow_redirects=False,
+        )
+        assert cb.headers["location"] == "/"
+        user = _user_by_sub(sub)
+        db = SessionLocal()
+        try:
+            session = db.query(AuthSession).filter_by(user_id=user.id).one()
+            assert session.origin == "oidc"
+            assert session.ip_address == "198.51.100.23"
+            assert session.user_agent == "MockBrowser/1.0"
+        finally:
+            db.close()
+
     def test_second_sign_in_finds_the_same_account(self, client, idp):
         sub = f"sub-{uuid.uuid4().hex[:8]}"
         idp.id_claims = {"sub": sub, "email": f"{sub}@example.com", "preferred_username": sub}
@@ -258,6 +285,90 @@ class TestMockIdPSignIn:
         cb = _sign_in(client, idp)
         assert cb.headers["location"].startswith("/login?oidc_error=")
         assert _user_by_sub(sub) is None
+
+    def _resign(self, monkeypatch, idp, make_token):
+        """Have the token endpoint hand back an ID token built by ``make_token``
+        from the claims it would have signed."""
+        real_post = idp.post
+
+        def resigned(url, data=None, **kw):
+            resp = real_post(url, data=data, **kw)
+            body = resp.json()
+            payload = body["id_token"].split(".")[1]
+            claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+            body["id_token"] = make_token(claims)
+            return MockIdP._json(url, body, method="POST")
+
+        monkeypatch.setattr(httpx, "post", resigned)
+
+    def test_hs256_token_is_refused_cleanly(self, client, idp, monkeypatch):
+        """A token signed with a shared secret can't be checked against the
+        provider's published keys; it is a sign-in error, not a server error."""
+        sub = f"sub-{uuid.uuid4().hex[:8]}"
+        idp.id_claims = {"sub": sub}
+        self._resign(
+            monkeypatch,
+            idp,
+            lambda claims: jwt.encode({"alg": "HS256", "kid": "k1"}, claims, CLIENT_SECRET).decode(),
+        )
+        cb = _sign_in(client, idp)
+        assert cb.status_code == 302
+        assert cb.headers["location"].startswith("/login?oidc_error=")
+        assert _user_by_sub(sub) is None
+
+    def test_unsigned_token_is_refused(self, client, idp, monkeypatch):
+        sub = f"sub-{uuid.uuid4().hex[:8]}"
+        idp.id_claims = {"sub": sub}
+
+        def unsigned(claims):
+            def part(obj):
+                raw = json.dumps(obj).encode()
+                return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+            return f"{part({'alg': 'none'})}.{part(claims)}."
+
+        self._resign(monkeypatch, idp, unsigned)
+        cb = _sign_in(client, idp)
+        assert cb.headers["location"].startswith("/login?oidc_error=")
+        assert _user_by_sub(sub) is None
+
+    def test_token_in_another_listed_algorithm_is_refused(self, client, idp, monkeypatch):
+        """Verification is pinned to the configured algorithm (RS256 here): a
+        validly signed RS512 token from the same key is still refused."""
+        sub = f"sub-{uuid.uuid4().hex[:8]}"
+        idp.id_claims = {"sub": sub}
+        self._resign(
+            monkeypatch,
+            idp,
+            lambda claims: jwt.encode({"alg": "RS512", "kid": "k1"}, claims, idp.jwk).decode(),
+        )
+        cb = _sign_in(client, idp)
+        assert cb.headers["location"].startswith("/login?oidc_error=")
+        assert _user_by_sub(sub) is None
+
+    def test_a_stored_hs256_setting_fails_with_a_clear_message(self, client, idp):
+        """HS256 can't be chosen any more, but an instance that saved it before
+        gets a sign-in error saying what to change, not a server error."""
+        from backend.models import AppSetting
+
+        db = SessionLocal()
+        try:
+            db.query(AppSetting).filter_by(key="oidc_signing_alg").one().value = "HS256"
+            db.commit()
+        finally:
+            db.close()
+        try:
+            idp.id_claims = {"sub": f"sub-{uuid.uuid4().hex[:8]}"}
+            cb = _sign_in(client, idp)
+            assert cb.status_code == 302
+            assert "not+supported" in cb.headers["location"]
+        finally:
+            db = SessionLocal()
+            try:
+                db.query(AppSetting).filter_by(key="oidc_signing_alg").one().value = "RS256"
+                db.commit()
+            finally:
+                db.close()
 
     def test_idp_denial_shows_a_fixed_message(self, client, idp):
         start = client.get("/api/auth/openid/login", follow_redirects=False)
@@ -310,3 +421,63 @@ class TestMockIdPUserinfo:
         idp.userinfo = {"sub": sub, "email": f"{sub}@example.com", "email_verified": True}
         assert _sign_in(client, idp).status_code == 302
         assert _user_by_sub(sub).email == f"{sub}@example.com"
+
+
+class TestMockIdPBrowserBinding:
+    """A sign-in finishes only in the browser that started it."""
+
+    def test_login_sets_a_short_lived_flow_cookie(self, client, idp):
+        start = client.get("/api/auth/openid/login", follow_redirects=False)
+        cookie = _set_cookies(start).lower()
+        assert "grimoire_oidc_flow=" in cookie
+        assert "httponly" in cookie
+        assert "samesite=lax" in cookie
+        assert "path=/api/auth/openid" in cookie
+        assert "max-age=600" in cookie
+        # Plain http here, so not Secure...
+        assert "secure" not in cookie
+        # ...but over https (as told by a trusted proxy) it is.
+        secure = client.get(
+            "/api/auth/openid/login",
+            headers={"X-Forwarded-Proto": "https"},
+            follow_redirects=False,
+        )
+        assert "secure" in _set_cookies(secure).lower()
+        client.cookies.delete("grimoire_oidc_flow")
+
+    def test_callback_without_the_cookie_is_refused(self, client, idp):
+        sub = f"sub-{uuid.uuid4().hex[:8]}"
+        idp.id_claims = {"sub": sub, "preferred_username": sub}
+        start = client.get("/api/auth/openid/login", follow_redirects=False)
+        grant = idp.authorize(start.headers["location"])
+        # Someone else's browser: it never visited /openid/login.
+        client.cookies.delete("grimoire_oidc_flow")
+        cb = client.get("/api/auth/openid/callback", params=grant, follow_redirects=False)
+        assert cb.headers["location"].startswith("/login?oidc_error=")
+        assert "grimoire_session=" not in _set_cookies(cb)
+        assert _user_by_sub(sub) is None
+        # Nothing was exchanged with the provider for it.
+        assert grant["code"] in idp.codes
+
+    def test_callback_with_another_flows_cookie_is_refused(self, client, idp):
+        sub = f"sub-{uuid.uuid4().hex[:8]}"
+        idp.id_claims = {"sub": sub, "preferred_username": sub}
+        start = client.get("/api/auth/openid/login", follow_redirects=False)
+        grant = idp.authorize(start.headers["location"])
+        client.cookies.delete("grimoire_oidc_flow")
+        client.cookies.set("grimoire_oidc_flow", "from-a-different-sign-in")
+        try:
+            cb = client.get("/api/auth/openid/callback", params=grant, follow_redirects=False)
+        finally:
+            client.cookies.delete("grimoire_oidc_flow")
+        assert cb.headers["location"].startswith("/login?oidc_error=")
+        assert _user_by_sub(sub) is None
+
+    def test_the_flow_cookie_is_cleared_after_the_callback(self, client, idp):
+        sub = f"sub-{uuid.uuid4().hex[:8]}"
+        idp.id_claims = {"sub": sub, "preferred_username": sub}
+        cb = _sign_in(client, idp)
+        assert cb.headers["location"] == "/library"
+        cleared = [c for c in _set_cookies(cb).split("grimoire_") if c.startswith("oidc_flow=")]
+        assert cleared and "max-age=0" in cleared[0].lower()
+        assert "grimoire_oidc_flow" not in client.cookies

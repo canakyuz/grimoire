@@ -16,7 +16,9 @@ import importlib.util
 import io
 import json
 import os
+import re
 import sys
+from collections.abc import MutableMapping
 
 
 def _load_script(script_path: str):
@@ -67,17 +69,31 @@ def run(script_path: str, request_json: str) -> dict:
 # environment (multiprocessing offers no env= to start it with another), and
 # the third-party script it runs needs none of them. Not a sandbox - the
 # script can still read DATA_PATH - but nothing is handed to it for free.
-_SECRET_NAME = ("SECRET", "TOKEN", "PASSWORD", "PASSWD", "API_KEY", "PRIVATE_KEY")
+# CREDENTIAL covers ADDON_INDEX_CREDENTIALS (private add-on index tokens); a
+# _KEY name covers SECRET_KEY-style settings and keys a deployment passes in.
+_SECRET_NAME = (
+    "SECRET", "TOKEN", "PASSWORD", "PASSWD", "CREDENTIAL", "API_KEY", "PRIVATE_KEY", "DSN",
+)
 _SECRET_VARS = ("VALKEY_URL", "DATABASE_URL")  # URLs that carry a password
+# A URL with a password in it (scheme://user:pass@host), whatever it is called:
+# a proxy, or a Redis or database URL a deployment adds.
+_URL_WITH_PASSWORD = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^/@\s]*:[^/@\s]*@")
 
 
-def scrub_environment(environ=os.environ) -> list[str]:
+def _is_secret(name: str, value: str) -> bool:
+    upper = name.upper()
+    return (
+        name in _SECRET_VARS
+        or any(part in upper for part in _SECRET_NAME)
+        or upper.endswith("_KEY")
+        or "_KEY_" in upper
+        or bool(_URL_WITH_PASSWORD.match(value))
+    )
+
+
+def scrub_environment(environ: MutableMapping[str, str] = os.environ) -> list[str]:
     """Remove credentials from ``environ``; returns the names removed."""
-    removed = [
-        name
-        for name in list(environ)
-        if name in _SECRET_VARS or any(part in name.upper() for part in _SECRET_NAME)
-    ]
+    removed = [name for name, value in list(environ.items()) if _is_secret(name, value)]
     for name in removed:
         environ.pop(name, None)
     return removed

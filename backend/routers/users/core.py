@@ -170,6 +170,12 @@ def update_user(
     if data.email is not None and (data.email or None) != user.email:
         api_keys.assert_session(current_user)
 
+    if data.role and data.role != user.role and user.is_guest:
+        # A guest signs in with its invite code, which only works for the guest
+        # role, so a guest given any other role could no longer sign in at all.
+        # Converting is how a guest becomes a regular account.
+        raise HTTPException(400, "Convert a guest to a permanent user to change its role")
+
     if data.role and data.role != "admin" and user.role == "admin":
         admin_count = db.query(User).filter_by(role="admin").count()
         if admin_count <= 1:

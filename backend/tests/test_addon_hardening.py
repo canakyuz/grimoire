@@ -66,6 +66,26 @@ def test_worker_environment_is_scrubbed():
     assert "SECRET_KEY" in removed and "VALKEY_URL" in removed
 
 
+def test_worker_environment_scrub_covers_other_credentials():
+    env = {
+        "ADDON_INDEX_CREDENTIALS": '{"https://example.com/index.json": "tok"}',
+        "AWS_ACCESS_KEY_ID": "a",
+        "ENCRYPTION_KEY": "e",
+        "SENTRY_DSN": "https://x@sentry.example/1",
+        "HTTPS_PROXY": "http://user:pw@proxy:3128",
+        "REDIS_URL": "redis://:pw@redis:6379/0",
+        "GOOGLE_APPLICATION_CREDENTIALS": "/data/sa.json",
+        # Kept: no credential in the name or the value.
+        "BASE_URL": "https://grimoire.example",
+        "HTTP_PROXY": "http://proxy:3128",
+        "KEYBOARD": "us",
+        "DATA_PATH": "/data",
+    }
+    removed = scrub_environment(env)
+    assert set(env) == {"BASE_URL", "HTTP_PROXY", "KEYBOARD", "DATA_PATH"}
+    assert "ADDON_INDEX_CREDENTIALS" in removed
+
+
 def test_worker_scrubs_before_running_the_script(tmp_path, monkeypatch):
     import json
 

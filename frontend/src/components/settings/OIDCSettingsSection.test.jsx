@@ -168,6 +168,55 @@ describe('OIDCSettingsSection', () => {
     )
   })
 
+  it('offers only algorithms that can verify against the provider keys', async () => {
+    settingsApi.get.mockResolvedValue(baseSettings())
+    render(<OIDCSettingsSection />)
+    const select = await screen.findByLabelText('authSettings.oidc.signingAlg')
+    const options = [...select.options].map((o) => o.value)
+    expect(options).toContain('RS256')
+    expect(options).not.toContain('HS256')
+    expect(screen.queryByText('authSettings.oidc.signingAlgUnsupportedHint')).toBeNull()
+  })
+
+  it('shows a stored HS256 as unsupported until another is chosen', async () => {
+    settingsApi.get.mockResolvedValue(baseSettings({ oidc_signing_alg: 'HS256' }))
+    settingsApi.patch.mockResolvedValue(baseSettings({ oidc_signing_alg: 'RS256' }))
+    render(<OIDCSettingsSection />)
+    expect(
+      await screen.findByText('authSettings.oidc.signingAlgUnsupportedHint')
+    ).toBeInTheDocument()
+    const select = screen.getByLabelText('authSettings.oidc.signingAlg')
+    await waitFor(() => expect(select.value).toBe('HS256'))
+    const stale = [...select.options].find((o) => o.value === 'HS256')
+    expect(stale.disabled).toBe(true)
+    await userEvent.selectOptions(select, 'RS256')
+    await waitFor(() =>
+      expect(settingsApi.patch).toHaveBeenCalledWith({ oidc_signing_alg: 'RS256' })
+    )
+    await waitFor(() =>
+      expect(screen.queryByText('authSettings.oidc.signingAlgUnsupportedHint')).toBeNull()
+    )
+  })
+
+  it('shows the role group names and saves a renamed one', async () => {
+    settingsApi.get.mockResolvedValue(
+      baseSettings({ oidc_admin_group: 'admin', oidc_gm_group: 'gm', oidc_player_group: 'player' })
+    )
+    settingsApi.patch.mockResolvedValue(baseSettings({ oidc_admin_group: 'grimoire-admin' }))
+    render(<OIDCSettingsSection />)
+    const admin = await screen.findByLabelText('authSettings.oidc.adminGroup')
+    await waitFor(() => expect(admin.value).toBe('admin'))
+    expect(screen.getByLabelText('authSettings.oidc.gmGroup').value).toBe('gm')
+    expect(screen.getByLabelText('authSettings.oidc.playerGroup').value).toBe('player')
+    expect(screen.getByText('authSettings.oidc.roleGroupsHint')).toBeInTheDocument()
+    await userEvent.clear(admin)
+    await userEvent.type(admin, 'grimoire-admin')
+    await userEvent.tab()
+    await waitFor(() =>
+      expect(settingsApi.patch).toHaveBeenCalledWith({ oidc_admin_group: 'grimoire-admin' })
+    )
+  })
+
   it('marks env-locked fields as locked and refuses to save them', async () => {
     settingsApi.get.mockResolvedValue(
       baseSettings({ oidc_client_id: 'from-env', oidc_client_id_env_locked: true })

@@ -23,6 +23,7 @@ from ...indexer.thumbnails import archive_ext
 from ...models import Book
 from ...services.content_cache import content_token, page_cache_prefix
 from ...render import pool as render_pool
+from ...render.ops import MIN_RENDER_WIDTH
 from ._helpers import _assert_book_access, _cached_book_info
 from ._render_cache import render_errors, serve_cached_render
 
@@ -92,7 +93,7 @@ def serve_book_page(
     request: Request,
     book_id: str,
     page_num: int,
-    width: int = Query(1200, le=3000),
+    width: int = Query(1200, ge=MIN_RENDER_WIDTH, le=3000),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

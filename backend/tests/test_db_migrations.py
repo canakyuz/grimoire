@@ -1327,3 +1327,236 @@ class TestUserLastActivity:
         assert rows["seen"][1].startswith("2026-04-01 10:00:00")
         assert rows["never"] == (None, None)
         assert _stamped_revision(path) == _alembic_head(path)
+
+
+class TestSchemaAlignment:
+    """0055 brings the migrated schema in line with the models, and ``alembic
+    check`` keeps it there."""
+
+    _BEFORE = "243b40052a01"
+    _VARIANT_TABLES = ("books", "generic_maps", "tokens", "audio")
+
+    def _db_at_0054(self):
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), self._BEFORE)
+        engine.dispose()
+        return path
+
+    def _seed(self, path, statements):
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            with engine.begin() as conn:
+                for sql in statements:
+                    conn.execute(text(sql))
+        finally:
+            engine.dispose()
+
+    def _rows(self, path, sql):
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            with engine.connect() as conn:
+                return conn.execute(text(sql)).all()
+        finally:
+            engine.dispose()
+
+    def _check(self, path):
+        """``alembic check`` against the database at ``path``: raises on drift."""
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            with engine.connect() as conn:
+                command.check(_alembic_config(conn))
+        finally:
+            engine.dispose()
+
+    def _fks(self, path, table):
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            return inspect(engine).get_foreign_keys(table)
+        finally:
+            engine.dispose()
+
+    def _seed_0054(self, path):
+        """Rows the 0054 schema allowed and the new keys and constraints don't."""
+        users = [
+            f"INSERT INTO users (id, username, role, created_at) "
+            f"VALUES ('{uid}', '{uid}', 'player', '2026-01-01 00:00:00')"
+            for uid in ("u1", "u2")
+        ]
+        self._seed(
+            path,
+            users
+            + [
+                "INSERT INTO campaigns (id, name, owner_id, is_gm_campaign) "
+                "VALUES ('c1', 'Live', 'u1', 1)",
+            ]
+            + [
+                "INSERT INTO characters (id, user_id, schema_ref, name, campaign_id, "
+                f"gm_can_edit, status) VALUES ('{cid}', 'u1', 's', '{cid}', {campaign}, 1, "
+                "'active')"
+                for cid, campaign in (("live", "'c1'"), ("orphan", "'gone'"), ("solo", "NULL"))
+            ]
+            + [
+                "INSERT INTO rulesets (id, campaign_id, owner_id, created_by_id, schema_id, "
+                f"name) VALUES ('{rid}', {campaign}, {owner}, {author}, 's', '{rid}')"
+                for rid, campaign, owner, author in (
+                    ("personal", "NULL", "'u1'", "'u1'"),
+                    ("abandoned", "NULL", "'ghost'", "'ghost'"),
+                    ("table", "'c1'", "NULL", "'ghost'"),
+                    ("server", "NULL", "NULL", "'u2'"),
+                )
+            ]
+            + [
+                "INSERT INTO ruleset_entries (id, ruleset_id, schema_id, content_type, "
+                f"entry_id, name) VALUES ('e-{rid}', '{rid}', 's', 'feat', 'lucky', 'Lucky')"
+                for rid in ("personal", "abandoned", "table", "server")
+            ]
+            + [
+                "INSERT INTO share_links (id, token_hash, token_sealed, user_id, "
+                f"resource_type, resource_id, filename) VALUES ('{lid}', {h}, {sealed}, 'u1', "
+                "'book', 'b1', 'b.pdf')"
+                for lid, h, sealed in (
+                    ("good", "'hash-good'", "'sealed'"),
+                    ("no-hash", "NULL", "'sealed'"),
+                    ("no-seal", "'hash-ns'", "NULL"),
+                )
+            ],
+        )
+
+    def test_fresh_db_passes_alembic_check(self):
+        """The migrations build exactly what the models declare. Fails when a
+        model changes without a migration, or a migration without its model."""
+        self._check(_fresh_db())
+
+    def test_upgrade_from_0054_fixes_existing_rows(self):
+        path = self._db_at_0054()
+        self._seed_0054(path)
+        init_db(path)
+        assert _stamped_revision(path) == _alembic_head(path)
+        self._check(path)
+
+        characters = {
+            r[0]: (r[1], r[2])
+            for r in self._rows(path, "SELECT id, campaign_id, gm_can_edit FROM characters")
+        }
+        assert characters == {"live": ("c1", 1), "orphan": (None, 0), "solo": (None, 1)}
+
+        rulesets = {
+            r[0]: (r[1], r[2])
+            for r in self._rows(path, "SELECT id, owner_id, created_by_id FROM rulesets")
+        }
+        # The ownerless personal ruleset is gone; a departed author is cleared.
+        assert rulesets == {
+            "personal": ("u1", "u1"),
+            "table": (None, None),
+            "server": (None, "u2"),
+        }
+        # Rebuilding rulesets kept every surviving ruleset's entries.
+        entries = {r[0] for r in self._rows(path, "SELECT ruleset_id FROM ruleset_entries")}
+        assert entries == {"personal", "table", "server"}
+
+        assert [r[0] for r in self._rows(path, "SELECT id FROM share_links")] == ["good"]
+
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            insp = inspect(engine)
+            for table in self._VARIANT_TABLES:
+                names = {i["name"] for i in insp.get_indexes(table)}
+                assert f"ix_{table}_variant_parent_id" in names
+                assert f"ix_{table}_variant_parent" not in names
+            assert not {
+                c["name"] for c in insp.get_columns("share_links") if c["nullable"]
+            } & {"token_hash", "token_sealed"}
+        finally:
+            engine.dispose()
+        assert not self._rows(path, "SELECT name FROM sqlite_master WHERE name LIKE '_alembic%'")
+
+    def test_the_new_keys_hold(self):
+        path = self._db_at_0054()
+        self._seed_0054(path)
+        engine, _ = init_db(path)
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("DELETE FROM campaigns WHERE id = 'c1'"))
+            with engine.connect() as conn:
+                live = conn.execute(
+                    text("SELECT campaign_id FROM characters WHERE id = 'live'")
+                ).scalar()
+                assert live is None
+            # A personal ruleset now needs its owner to exist.
+            with engine.connect() as conn:
+                try:
+                    conn.execute(
+                        text(
+                            "INSERT INTO rulesets (id, owner_id, schema_id, name) "
+                            "VALUES ('x', 'nobody', 's', 'x')"
+                        )
+                    )
+                    conn.commit()
+                    raised = False
+                except Exception:
+                    conn.rollback()
+                    raised = True
+            assert raised
+        finally:
+            engine.dispose()
+        ondelete = {
+            fk["constrained_columns"][0]: fk["options"].get("ondelete")
+            for fk in self._fks(path, "characters")
+        }
+        assert ondelete["campaign_id"] == "SET NULL"
+
+    def test_downgrade_restores_the_0054_schema(self):
+        path = self._db_at_0054()
+        assert not [
+            fk for fk in self._fks(path, "characters") if fk["referred_table"] == "campaigns"
+        ]
+        assert not [
+            fk for fk in self._fks(path, "rulesets") if fk["constrained_columns"] == ["owner_id"]
+        ]
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            insp = inspect(engine)
+            assert {
+                c["name"] for c in insp.get_columns("share_links") if c["nullable"]
+            } >= {"token_hash", "token_sealed"}
+            for table in self._VARIANT_TABLES:
+                assert f"ix_{table}_variant_parent" in {
+                    i["name"] for i in insp.get_indexes(table)
+                }
+        finally:
+            engine.dispose()
+
+    def test_downgrade_keeps_ruleset_entries(self):
+        path = _fresh_db()
+        self._seed(
+            path,
+            [
+                "INSERT INTO users (id, username, role, created_at) "
+                "VALUES ('u1', 'u1', 'player', '2026-01-01 00:00:00')",
+                "INSERT INTO rulesets (id, owner_id, schema_id, name) "
+                "VALUES ('r1', 'u1', 's', 'Mine')",
+                "INSERT INTO ruleset_entries (id, ruleset_id, schema_id, content_type, "
+                "entry_id, name) VALUES ('e1', 'r1', 's', 'feat', 'lucky', 'Lucky')",
+            ],
+        )
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), self._BEFORE)
+        engine.dispose()
+        assert self._rows(path, "SELECT id FROM ruleset_entries") == [("e1",)]
+
+    def test_rerunning_is_a_no_op(self):
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            # Replays 0055 over a schema that already has its changes.
+            command.stamp(_alembic_config(conn), self._BEFORE)
+        engine.dispose()
+        init_db(path)
+        assert _stamped_revision(path) == _alembic_head(path)
+        assert len(
+            [fk for fk in self._fks(path, "characters") if fk["referred_table"] == "campaigns"]
+        ) == 1
+        self._check(path)

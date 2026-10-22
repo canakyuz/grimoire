@@ -18,6 +18,7 @@ from .. import addons, codex
 from ..codex import lookup as codex_lookup
 from ..models import Book, GameSystem
 from ..services import tag_service
+from ._codex_schemas import codex_id_validator
 
 
 class MetadataSource(BaseModel):
@@ -173,6 +174,9 @@ def fetch(
                 identity = codex_lookup.resolve_paste(target, paste)
             if not identity:
                 raise ValueError("no result was chosen")
+            # The id becomes part of the Grimoire Codex DB request path, so it gets the
+            # same check as a pasted id or a PATCHed ``codex_id``.
+            identity = codex_id_validator(identity) or ""
             result = codex_lookup.fetch(codex.load(db), target, identity)
         except (codex.CodexError, ValueError) as exc:
             raise _codex_error(exc) from exc

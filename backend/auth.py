@@ -29,6 +29,9 @@ REJECTED_SECRET_KEYS = frozenset(
         # file before those switched to generating a key.
         "zx7k2mQpR9nLwT4vBcYeHs3JuAoDfGiN",
         "7ba05239cdd5752065eb6bd5db866bf8a0919d2760b1fcf158744f5ef5833834",
+        # The install guide's and FAQ's fill-in line, pasted unedited. Any other
+        # <...> value is refused too (see _looks_like_placeholder).
+        "<paste the generated value here>",
     }
 )
 
@@ -52,6 +55,16 @@ TOKEN_EXPIRE_DAYS = 30
 
 class InsecureSecretKeyError(RuntimeError):
     """Raised at start-up when SECRET_KEY is set to a published placeholder."""
+
+
+def _looks_like_placeholder(key: str) -> bool:
+    """True for an angle-bracket fill-in such as ``<your key here>``, quoted or not.
+
+    Docs write values to replace as ``<...>``; one copied unedited is as public
+    as the docs, and no generated key looks like that.
+    """
+    bare = key.strip("'\"").strip()
+    return bare.startswith("<") and bare.endswith(">")
 
 
 def _load_or_create_secret_key(data_path: str) -> str:
@@ -117,7 +130,7 @@ def resolve_secret_key(env_value: Optional[str], data_path: str) -> str:
     if not key:
         return _load_or_create_secret_key(data_path)
 
-    if key in REJECTED_SECRET_KEYS:
+    if key in REJECTED_SECRET_KEYS or _looks_like_placeholder(key):
         raise InsecureSecretKeyError(
             f"SECRET_KEY is set to {key!r}, a placeholder published in Grimoire's "
             f"own documentation - anyone could forge admin sessions on this "

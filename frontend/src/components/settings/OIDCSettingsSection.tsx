@@ -1,10 +1,43 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuRefreshCw, LuCopy, LuLock, LuEye, LuEyeOff } from 'react-icons/lu'
-import api, { settings as settingsApi } from '../../api'
+import api, { settings as settingsApi, type Schema } from '../../api'
 import Spinner from '../Spinner'
 import OIDCButtonAppearance from './OIDCButtonAppearance'
 
+type Settings = Schema<'SettingsResponse'>
+type SettingsPatch = Schema<'SettingsPatch'>
+type Draft = Record<string, string | boolean>
+
+interface DiscoveryDoc {
+  issuer?: string
+  authorization_endpoint?: string
+  token_endpoint?: string
+  userinfo_endpoint?: string
+  jwks_uri?: string
+  end_session_endpoint?: string
+}
+
+interface FieldRowProps {
+  key: string
+  label: string
+  hint?: ReactNode
+  type?: string
+  placeholder?: string
+}
+
+/** Read a settings field by name; the form addresses fields as strings. */
+const field = (data: Settings, key: string): unknown =>
+  (data as unknown as Record<string, unknown>)[key]
+
+const errorMessage = (e: unknown): string => {
+  const message = (e as { message?: unknown } | null)?.message
+  return typeof message === 'string' ? message : ''
+}
+
+// ID tokens are verified against the provider's published keys, so only
+// public-key algorithms are offered (the server refuses anything else).
 const SIGNING_ALGS = [
   'RS256',
   'RS384',
@@ -15,7 +48,6 @@ const SIGNING_ALGS = [
   'PS256',
   'PS384',
   'PS512',
-  'HS256',
 ]
 const MATCH_BY_OPTIONS = ['none', 'email', 'username']
 
@@ -30,6 +62,9 @@ const STRING_FIELDS = [
   'oidc_client_id',
   'oidc_signing_alg',
   'oidc_groups_claim',
+  'oidc_admin_group',
+  'oidc_gm_group',
+  'oidc_player_group',
   'oidc_permissions_claim',
   'oidc_match_by',
 ]
@@ -38,26 +73,26 @@ const BOOL_FIELDS = ['oidc_enabled', 'oidc_auto_launch', 'oidc_auto_register']
 
 export default function OIDCSettingsSection() {
   const { t } = useTranslation()
-  const [data, setData] = useState(null)
-  const [draft, setDraft] = useState({})
+  const [data, setData] = useState<Settings | null>(null)
+  const [draft, setDraft] = useState<Draft>({})
   const [secretDraft, setSecretDraft] = useState('') // empty = no change
   const [showSecret, setShowSecret] = useState(false)
   const [discovering, setDiscovering] = useState(false)
   const [discoverError, setDiscoverError] = useState('')
-  const [savingField, setSavingField] = useState(null)
-  const [savedField, setSavedField] = useState(null)
+  const [savingField, setSavingField] = useState<string | null>(null)
+  const [savedField, setSavedField] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [redirectCopied, setRedirectCopied] = useState(false)
 
   // The "Saved" and "Copied" ticks clear themselves after a moment. Their
   // timers are cancelled on unmount, so leaving the page mid-tick never sets
   // state on a component that is gone.
-  const timersRef = useRef(new Set())
+  const timersRef = useRef(new Set<ReturnType<typeof setTimeout>>())
   useEffect(() => {
     const timers = timersRef.current
     return () => timers.forEach((id) => clearTimeout(id))
   }, [])
-  const later = useCallback((fn, ms) => {
+  const later = useCallback((fn: () => void, ms: number) => {
     const id = setTimeout(() => {
       timersRef.current.delete(id)
       fn()
@@ -76,51 +111,54 @@ export default function OIDCSettingsSection() {
   // Mirror server values into draft state once they arrive
   useEffect(() => {
     if (!data) return
-    const next = {}
-    for (const k of STRING_FIELDS) next[k] = data[k] ?? ''
-    for (const k of BOOL_FIELDS) next[k] = !!data[k]
+    const next: Draft = {}
+    for (const k of STRING_FIELDS) next[k] = (field(data, k) as string | undefined) ?? ''
+    for (const k of BOOL_FIELDS) next[k] = !!field(data, k)
     setDraft(next)
   }, [data])
 
   if (!data) return <Spinner size={20} />
 
-  const isLocked = (key) => !!data[`${key}_env_locked`]
+  const isLocked = (key: string) => !!field(data, `${key}_env_locked`)
+  const text = (key: string) => (draft[key] as string | undefined) ?? ''
+  const signingAlg = text('oidc_signing_alg') || 'RS256'
+  const signingAlgSupported = SIGNING_ALGS.includes(signingAlg)
 
-  const saveField = async (key, value) => {
+  const saveField = async (key: string, value: string | boolean) => {
     if (isLocked(key)) return
     setSavingField(key)
     setError('')
     try {
-      const updated = await settingsApi.patch({ [key]: value })
+      const updated = await settingsApi.patch({ [key]: value } as SettingsPatch)
       setData(updated)
       setSavedField(key)
       later(() => setSavedField(null), 1800)
     } catch (e) {
-      setError(e?.message || t('authSettings.oidc.saveFailed'))
+      setError(errorMessage(e) || t('authSettings.oidc.saveFailed'))
     } finally {
       setSavingField(null)
     }
   }
 
-  const handleStringBlur = (key) => {
-    const v = draft[key] ?? ''
-    if (v === (data[key] ?? '')) return
+  const handleStringBlur = (key: string) => {
+    const v = text(key)
+    if (v === ((field(data, key) as string | undefined) ?? '')) return
     saveField(key, v)
   }
 
-  const handleBoolToggle = (key) => {
+  const handleBoolToggle = (key: string) => {
     const next = !draft[key]
     setDraft((d) => ({ ...d, [key]: next }))
     saveField(key, next)
   }
 
-  const handleSelectChange = (key, value) => {
+  const handleSelectChange = (key: string, value: string) => {
     setDraft((d) => ({ ...d, [key]: value }))
     saveField(key, value)
   }
 
   const handleDiscover = async () => {
-    const issuer = (draft.oidc_issuer_url || '').trim()
+    const issuer = text('oidc_issuer_url').trim()
     if (!issuer) {
       setDiscoverError(t('authSettings.oidc.discoverNeedsIssuer'))
       return
@@ -128,8 +166,10 @@ export default function OIDCSettingsSection() {
     setDiscovering(true)
     setDiscoverError('')
     try {
-      const doc = await api.post('/auth/openid/discover', { issuer_url: issuer })
-      const updates = {}
+      const doc = (await api.post('/auth/openid/discover', {
+        issuer_url: issuer,
+      })) as DiscoveryDoc
+      const updates: Record<string, string> = {}
       // Always update oidc_issuer_url with the canonical issuer from the discovery
       // document — the token's `iss` claim must match this exactly, and IdPs
       // often return a different value than the URL the user typed (e.g. they
@@ -138,10 +178,10 @@ export default function OIDCSettingsSection() {
         updates['oidc_issuer_url'] = doc.issuer
       }
       // Populate empty fields; don't overwrite values the admin already set.
-      const fillIfEmpty = (key, value) => {
+      const fillIfEmpty = (key: string, value: string | undefined) => {
         if (!value) return
         if (isLocked(key)) return
-        if ((draft[key] || '').trim()) return
+        if (text(key).trim()) return
         updates[key] = value
       }
       fillIfEmpty('oidc_token_issuer', doc.issuer)
@@ -151,11 +191,11 @@ export default function OIDCSettingsSection() {
       fillIfEmpty('oidc_jwks_uri', doc.jwks_uri)
       fillIfEmpty('oidc_end_session_endpoint', doc.end_session_endpoint)
       if (Object.keys(updates).length > 0) {
-        const updated = await settingsApi.patch(updates)
+        const updated = await settingsApi.patch(updates as SettingsPatch)
         setData(updated)
       }
     } catch (e) {
-      setDiscoverError(e?.message || t('authSettings.oidc.discoverFailed'))
+      setDiscoverError(errorMessage(e) || t('authSettings.oidc.discoverFailed'))
     } finally {
       setDiscovering(false)
     }
@@ -173,7 +213,7 @@ export default function OIDCSettingsSection() {
       setSavedField('oidc_client_secret')
       later(() => setSavedField(null), 1800)
     } catch (e) {
-      setError(e?.message || t('authSettings.oidc.saveFailed'))
+      setError(errorMessage(e) || t('authSettings.oidc.saveFailed'))
     } finally {
       setSavingField(null)
     }
@@ -187,7 +227,7 @@ export default function OIDCSettingsSection() {
       const updated = await settingsApi.patch({ oidc_client_secret: '__CLEAR__' })
       setData(updated)
     } catch (e) {
-      setError(e?.message || t('authSettings.oidc.saveFailed'))
+      setError(errorMessage(e) || t('authSettings.oidc.saveFailed'))
     } finally {
       setSavingField(null)
     }
@@ -200,7 +240,7 @@ export default function OIDCSettingsSection() {
   }
 
   // ---------- helpers ----------
-  const fieldRow = ({ key, label, hint, type = 'text', placeholder = '' }) => {
+  const fieldRow = ({ key, label, hint, type = 'text', placeholder = '' }: FieldRowProps) => {
     const locked = isLocked(key)
     return (
       <div key={key} style={{ marginBottom: 14 }}>
@@ -217,13 +257,13 @@ export default function OIDCSettingsSection() {
         <input
           id={key}
           type={type}
-          value={draft[key] ?? ''}
+          value={text(key)}
           onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
           onBlur={() => handleStringBlur(key)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()
-              e.target.blur()
+              e.currentTarget.blur()
             }
           }}
           disabled={locked}
@@ -247,7 +287,7 @@ export default function OIDCSettingsSection() {
     )
   }
 
-  const checkboxRow = (key, label, hint) => {
+  const checkboxRow = (key: string, label: string, hint?: ReactNode) => {
     const locked = isLocked(key)
     return (
       <div key={key} style={{ marginBottom: 14 }}>
@@ -379,7 +419,7 @@ export default function OIDCSettingsSection() {
           <input
             id="oidc_issuer_url"
             type="text"
-            value={draft.oidc_issuer_url ?? ''}
+            value={text('oidc_issuer_url')}
             onChange={(e) => setDraft((d) => ({ ...d, oidc_issuer_url: e.target.value }))}
             onBlur={() => handleStringBlur('oidc_issuer_url')}
             disabled={isLocked('oidc_issuer_url')}
@@ -394,14 +434,14 @@ export default function OIDCSettingsSection() {
           <button
             type="button"
             onClick={handleDiscover}
-            disabled={discovering || !draft.oidc_issuer_url}
+            disabled={discovering || !text('oidc_issuer_url')}
             style={{
               ...primaryBtnStyle,
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
-              opacity: discovering || !draft.oidc_issuer_url ? 0.6 : 1,
-              cursor: discovering || !draft.oidc_issuer_url ? 'default' : 'pointer',
+              opacity: discovering || !text('oidc_issuer_url') ? 0.6 : 1,
+              cursor: discovering || !text('oidc_issuer_url') ? 'default' : 'pointer',
             }}
             title={t('authSettings.oidc.autopopulateTitle')}
           >
@@ -565,17 +605,29 @@ export default function OIDCSettingsSection() {
         </label>
         <select
           id="oidc_signing_alg"
-          value={draft.oidc_signing_alg || 'RS256'}
+          value={signingAlg}
           onChange={(e) => handleSelectChange('oidc_signing_alg', e.target.value)}
           disabled={isLocked('oidc_signing_alg')}
           style={selectStyle}
         >
+          {/* A value saved before it stopped being offered (HS256), shown as
+              what it is rather than silently as the first option. */}
+          {!signingAlgSupported && (
+            <option value={signingAlg} disabled>
+              {t('authSettings.oidc.signingAlgUnsupported', { alg: signingAlg })}
+            </option>
+          )}
           {SIGNING_ALGS.map((a) => (
             <option key={a} value={a}>
               {a}
             </option>
           ))}
         </select>
+        {!signingAlgSupported && (
+          <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4, lineHeight: 1.5 }}>
+            {t('authSettings.oidc.signingAlgUnsupportedHint')}
+          </div>
+        )}
       </div>
 
       {/* The button's text, colours, radius and icon, with a live preview. */}
@@ -584,6 +636,18 @@ export default function OIDCSettingsSection() {
         key: 'oidc_groups_claim',
         label: t('authSettings.oidc.groupsClaim'),
         hint: t('authSettings.oidc.groupsClaimHint'),
+      })}
+      {fieldRow({
+        key: 'oidc_admin_group',
+        label: t('authSettings.oidc.adminGroup'),
+        placeholder: 'admin',
+      })}
+      {fieldRow({ key: 'oidc_gm_group', label: t('authSettings.oidc.gmGroup'), placeholder: 'gm' })}
+      {fieldRow({
+        key: 'oidc_player_group',
+        label: t('authSettings.oidc.playerGroup'),
+        placeholder: 'player',
+        hint: t('authSettings.oidc.roleGroupsHint'),
       })}
       {fieldRow({
         key: 'oidc_permissions_claim',
@@ -603,7 +667,7 @@ export default function OIDCSettingsSection() {
         </label>
         <select
           id="oidc_match_by"
-          value={draft.oidc_match_by || 'none'}
+          value={text('oidc_match_by') || 'none'}
           onChange={(e) => handleSelectChange('oidc_match_by', e.target.value)}
           disabled={isLocked('oidc_match_by')}
           style={selectStyle}
@@ -635,7 +699,7 @@ export default function OIDCSettingsSection() {
   )
 }
 
-const fieldLabelStyle = {
+const fieldLabelStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -644,7 +708,7 @@ const fieldLabelStyle = {
   marginBottom: 5,
 }
 
-const lockedTagStyle = {
+const lockedTagStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 4,
@@ -658,7 +722,7 @@ const lockedTagStyle = {
   border: '1px solid rgba(180, 160, 100, 0.4)',
 }
 
-const selectStyle = {
+const selectStyle: CSSProperties = {
   background: 'var(--bg-input)',
   border: '1px solid var(--border)',
   color: 'var(--text)',
@@ -669,7 +733,7 @@ const selectStyle = {
   maxWidth: 320,
 }
 
-const primaryBtnStyle = {
+const primaryBtnStyle: CSSProperties = {
   padding: '7px 14px',
   borderRadius: 6,
   fontSize: 13,
@@ -680,7 +744,7 @@ const primaryBtnStyle = {
   cursor: 'pointer',
 }
 
-const dangerBtnStyle = {
+const dangerBtnStyle: CSSProperties = {
   padding: '7px 14px',
   borderRadius: 6,
   fontSize: 13,

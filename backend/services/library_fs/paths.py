@@ -22,6 +22,10 @@ from ...indexer.constants import (
 from ...metadata.formats import COVER_SUFFIX, SIDECAR_SUFFIXES
 from .constants import COLLECTIONS, LibraryFSError
 
+# The longest name one folder entry may have, in bytes: ext4, btrfs, XFS, APFS
+# and NTFS all stop at 255.
+MAX_SEGMENT_BYTES = 255
+
 
 def library_root() -> Path:
     """The library root exactly as configured, *without* resolving symlinks.
@@ -71,22 +75,37 @@ def safe_join(relative: str, *, must_exist: bool = False) -> Path:
     # path and hide the caller's mistake.
     if cleaned.startswith("/"):
         raise LibraryFSError("Path must be relative to the library root", code="forbidden")
+    # No filesystem holds a longer name, and asking one about it fails with
+    # ENAMETOOLONG rather than answering "no such file". ``fsencode`` measures
+    # it as it would reach the disk, a non-UTF-8 name's original bytes included.
+    if any(len(os.fsencode(segment)) > MAX_SEGMENT_BYTES for segment in cleaned.split("/")):
+        raise LibraryFSError(
+            f"A file or folder name can be at most {MAX_SEGMENT_BYTES} bytes long", code="invalid"
+        )
 
     candidate = root / cleaned
-    resolved_root = root.resolve()
-    resolved = candidate.resolve()
     # Interior "." / ".." are normalised away so the result is a clean path that
     # still matches stored filepaths. A ".." after a symlinked folder collapses
     # differently on paper than on disk, so the lexical form is only accepted
     # when it sits under the configured root and names the resolved location.
     lexical = Path(os.path.normpath(str(candidate)))
+    try:
+        resolved_root = root.resolve()
+        resolved = candidate.resolve()
+        lexical_resolved = lexical.resolve()
+        # Asked here, whether or not the caller needs it, so a path the
+        # filesystem cannot even look up (too long as a whole, say) is invalid
+        # input now rather than an OSError from whatever touches it next.
+        exists = candidate.exists()
+    except OSError as e:
+        raise LibraryFSError(f"Path is not valid: {cleaned}", code="invalid") from e
     if (
         (resolved != resolved_root and not resolved.is_relative_to(resolved_root))
         or not lexical.is_relative_to(os.path.normpath(str(root)))
-        or lexical.resolve() != resolved
+        or lexical_resolved != resolved
     ):
         raise LibraryFSError("Path escapes the library root", code="forbidden")
-    if must_exist and not candidate.exists():
+    if must_exist and not exists:
         raise LibraryFSError(f"Path does not exist: {cleaned}", code="not_found")
     return lexical
 

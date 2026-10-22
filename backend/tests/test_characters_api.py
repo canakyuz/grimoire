@@ -656,6 +656,26 @@ computed:
         assert resp.status_code == 400
         assert "JSON or YAML" in resp.json()["detail"]
 
+    def test_yaml_aliases_are_refused(self, client, admin_headers):
+        """An alias can repeat a node that holds aliases, so a short paste could
+        describe an enormous document; aliases are refused before any expands."""
+        bomb = 'a: &a ["x","x","x","x","x","x","x","x","x"]\n'
+        for level, prev in zip("bcde", "abcd"):
+            bomb += f"{level}: &{level} [{', '.join(['*' + prev] * 9)}]\n"
+        bomb += "id: bomb\nname: Bomb\n"
+        resp = client.post(
+            "/api/characters/schemas", json={"text": bomb}, headers=admin_headers
+        )
+        assert resp.status_code == 400
+        assert "aliases" in resp.json()["detail"]
+
+    def test_deeply_nested_json_is_a_400(self, client, admin_headers):
+        resp = client.post(
+            "/api/characters/schemas", json={"text": "[" * 30000}, headers=admin_headers
+        )
+        assert resp.status_code == 400
+        assert "nested" in resp.json()["detail"]
+
     def test_a_list_is_not_a_sheet(self, client, admin_headers):
         resp = client.post(
             "/api/characters/schemas", json={"text": "- one\n- two\n"}, headers=admin_headers

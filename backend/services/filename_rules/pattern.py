@@ -24,9 +24,18 @@ it; writing drops it when any field inside it is empty, so a book with no
 version is written ``Title`` rather than ``Title (v, )``. The angle brackets are
 free to use for this because no filesystem Grimoire runs on lets a filename
 contain them portably - Windows forbids both outright.
+
+Reading means the same as matching the pattern as one regex, anchored at both
+ends and ignoring case, in which most fields are a lazy ``.+?`` and an optional
+part is a greedy ``(?:...)?``. It is not done with that regex, though: every
+lazy field multiplies the ways a backtracking engine tries to split a name that
+does not fit, so a few ``{*}`` against one long name could take minutes, in a
+scan or a preview. :class:`_Matcher` searches the same choices in the same
+order, so it finds the same match, but remembers every (part, position) it has
+already seen fail, which keeps the work to a few passes over the name.
 """
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional, Union
 
 # Every placeholder a pattern may name, with the regex it reads. A year is four
@@ -67,6 +76,15 @@ _ILLEGAL = re.compile(r'[\\/*?"<>|\x00-\x1f]')
 _AUTHOR_SPLIT = re.compile(r"\s*(?:,|&|\band\b)\s*")
 
 _PLACEHOLDER = re.compile(r"\{([^{}]*)\}")
+
+# More placeholders than any real naming scheme needs (there are only eleven
+# named fields), and a bound on how much work reading one name can be.
+MAX_PLACEHOLDERS = 20
+
+# Longer than any filename a supported filesystem allows (255 bytes is at most
+# 255 characters), so a longer name - one written from metadata, say - cannot
+# be a file and is not read, rather than costing time in proportion to it.
+_MAX_READ_CHARS = 1024
 
 
 class PatternError(ValueError):
@@ -118,7 +136,7 @@ class Pattern:
     def __init__(self, source: str, parts: tuple[_Part, ...]) -> None:
         self.source = source
         self.parts = parts
-        self._regex = re.compile("^" + "".join(_regex_for(p) for p in parts) + "$", re.IGNORECASE)
+        self._matcher = _Matcher(parts)
 
     @property
     def fields(self) -> list[str]:
@@ -145,12 +163,12 @@ class Pattern:
         nothing (inside an absent optional part) is left out rather than empty,
         so callers can tell "no publisher in the name" from "an empty one".
         """
-        match = self._regex.match(_stem(filename))
-        if not match:
+        match = self._matcher.match(_stem(filename))
+        if match is None:
             return None
         out: dict[str, Any] = {}
-        for name, raw in match.groupdict().items():
-            if raw is None or name not in READ_FIELDS:
+        for name, raw in match.items():
+            if name not in READ_FIELDS:
                 continue
             value = raw.strip()
             if not value:
@@ -199,19 +217,174 @@ def _stem(filename: str) -> str:
     return filename[:dot] if dot > 0 else filename
 
 
-def _literal_regex(text: str) -> str:
-    """A literal, matching any run of whitespace where the pattern has one."""
-    return r"\s+".join(re.escape(chunk) for chunk in re.split(r"\s+", text))
+# How far a field that is not "anything" can reach, and so how many ends it
+# has to try: a year is exactly four characters, an ISBN ten to seventeen.
+_FIELD_LENGTHS = {"year": (4, 4), "date": (4, 10), "isbn": (10, 17)}
+
+_WHITESPACE = re.compile(r"\s*")
 
 
-def _regex_for(part: _Part) -> str:
-    if isinstance(part, _Optional):
-        return "(?:" + "".join(_regex_for(p) for p in part.parts) + ")?"
-    if isinstance(part, _Field):
-        if part.name == WILDCARD:
-            return r".+?"
-        return f"(?P<{part.name}>{_FIELD_REGEX[part.name]})"
-    return _literal_regex(part)
+@dataclass(frozen=True)
+class _Lit:
+    """Literal text. Whitespace in it matches any run of whitespace.
+
+    Each chunk of text between runs is fixed and holds no whitespace, so every
+    run but a trailing one must take all the whitespace there is: the text up to
+    the last chunk matches in exactly one way (``core``). A trailing run can end
+    anywhere in the whitespace after it, and like the greedy ``\\s+`` it stands
+    for, it tries the longest first.
+    """
+
+    core: Optional["re.Pattern[str]"]
+    trailing: bool
+
+
+@dataclass(frozen=True)
+class _Fld:
+    """A field. ``rx`` None is ``.+?``: anything but a newline, shortest first.
+
+    A field with its own regex is greedy, so it tries its longest match first.
+    """
+
+    name: Optional[str]
+    rx: Optional["re.Pattern[str]"]
+    lengths: tuple[int, int] = (1, 1)
+
+
+@dataclass(frozen=True)
+class _Split:
+    """An optional part starts here: try it, and failing that jump past it."""
+
+    skip_to: int
+
+
+_Op = Union[_Lit, _Fld, _Split]
+
+
+def _lit(text: str) -> _Lit:
+    chunks = re.split(r"\s+", text)
+    trailing = len(chunks) > 1 and chunks[-1] == ""
+    fixed = chunks[:-1] if trailing else chunks
+    core = r"\s+".join(re.escape(chunk) for chunk in fixed)
+    return _Lit(re.compile(core, re.IGNORECASE) if core else None, trailing)
+
+
+def _fld(name: str) -> _Fld:
+    if name == WILDCARD:
+        return _Fld(None, None)
+    regex = _FIELD_REGEX[name]
+    if regex == r".+?":
+        return _Fld(name, None)
+    return _Fld(name, re.compile(regex, re.IGNORECASE), _FIELD_LENGTHS[name])
+
+
+@dataclass
+class _Matcher:
+    """Reads a name the way the pattern's regex would, without its blow-up.
+
+    The pattern is compiled to a short program of literals, fields and the
+    start of each optional part, and a name is matched by a depth-first search
+    over it that makes the same choices in the same order as a backtracking
+    regex engine: a lazy field takes as little as it can, a greedy one as much,
+    and an optional part is tried before it is skipped. So it settles on the
+    same match. What happens from a given step at a given position never depends
+    on how the search got there, so each result is remembered, and no step is
+    worked out twice from one position.
+    """
+
+    parts: tuple[_Part, ...]
+    program: list[_Op] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        for part in self.parts:
+            if isinstance(part, _Optional):
+                start = len(self.program)
+                self.program.append(_Split(0))
+                self.program.extend(_op(p) for p in part.parts)
+                self.program[start] = _Split(len(self.program))
+            else:
+                self.program.append(_op(part))
+
+    def match(self, text: str) -> Optional[dict[str, str]]:
+        """The named fields' raw text, or None when ``text`` does not fit."""
+        if len(text) > _MAX_READ_CHARS:
+            return None
+        found = _Search(self.program, text).run(0, 0)
+        if found is None:
+            return None
+        out: dict[str, str] = {}
+        while found:
+            name, start, end, found = found
+            out[name] = text[start:end]
+        return out
+
+
+def _op(part: Union[str, _Field]) -> _Op:
+    return _fld(part.name) if isinstance(part, _Field) else _lit(part)
+
+
+# A match is the fields it captured, as a chain (name, start, end, rest) ending
+# in (); None is no match.
+_Found = Optional[tuple[Any, ...]]
+_UNSEEN: Any = object()
+
+
+class _Search:
+    """One name against one program, with every (step, position) remembered."""
+
+    def __init__(self, program: list[_Op], text: str) -> None:
+        self.program = program
+        self.text = text
+        self.size = len(text)
+        self.width = len(text) + 1
+        self.seen: dict[int, _Found] = {}
+
+    def run(self, pc: int, pos: int) -> _Found:
+        key = pc * self.width + pos
+        found = self.seen.get(key, _UNSEEN)
+        if found is _UNSEEN:
+            found = self.seen[key] = self._step(pc, pos)
+        return found
+
+    def _step(self, pc: int, pos: int) -> _Found:
+        text = self.text
+        if pc == len(self.program):
+            # ``$``: the end, or just before a newline that ends the text.
+            at_end = pos == self.size or (pos == self.size - 1 and text[pos] == "\n")
+            return () if at_end else None
+        op = self.program[pc]
+        if isinstance(op, _Split):
+            found = self.run(pc + 1, pos)
+            return found if found is not None else self.run(op.skip_to, pos)
+        if isinstance(op, _Lit):
+            end = pos
+            if op.core is not None:
+                m = op.core.match(text, pos)
+                if m is None:
+                    return None
+                end = m.end()
+            if not op.trailing:
+                return self.run(pc + 1, end)
+            run_end = _WHITESPACE.match(text, end).end()  # type: ignore[union-attr]  # \s* always matches
+            for stop in range(run_end, end, -1):
+                found = self.run(pc + 1, stop)
+                if found is not None:
+                    return found
+            return None
+        if op.rx is None:
+            # ``.`` stops at a newline, which only a literal's whitespace takes.
+            newline = text.find("\n", pos)
+            stops: range = range(pos + 1, (self.size if newline == -1 else newline) + 1)
+        else:
+            low, high = op.lengths
+            stops = range(min(pos + high, self.size), pos + low - 1, -1)
+        for stop in stops:
+            if op.rx is not None and op.rx.fullmatch(text, pos, stop) is None:
+                continue
+            found = self.run(pc + 1, stop)
+            if found is not None:
+                return found if op.name is None else (op.name, pos, stop, found)
+        return None
 
 
 def clean_value(value: Any) -> str:
@@ -283,6 +456,9 @@ def parse(source: str) -> Pattern:
     ]
     if "title" not in names:
         raise PatternError("The pattern needs a {title}.")
+    placeholders = sum(isinstance(p, _Field) for p in _flatten(pattern_parts))
+    if placeholders > MAX_PLACEHOLDERS:
+        raise PatternError(f"A pattern can hold at most {MAX_PLACEHOLDERS} {{fields}}, {{*}} included.")
     repeated = sorted({n for n in names if names.count(n) > 1})
     if repeated:
         raise PatternError(f"{{{repeated[0]}}} appears more than once.")

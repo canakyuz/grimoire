@@ -23,7 +23,7 @@ from fastapi.responses import Response, StreamingResponse
 
 from .._user_files import serve_user_file
 from ...config import valkey_client, logger, valkey_cache_set
-from ...render.ops import PageOutOfRange, RenderError, TileOutOfRange
+from ...render.ops import PageOutOfRange, RenderError, TileOutOfRange, WidthOutOfRange
 
 
 @contextmanager
@@ -36,7 +36,7 @@ def render_errors(failed: str = "This page could not be rendered") -> Iterator[N
     """
     try:
         yield
-    except (PageOutOfRange, TileOutOfRange) as e:
+    except (PageOutOfRange, TileOutOfRange, WidthOutOfRange) as e:
         raise HTTPException(400, str(e)) from None
     except RenderError as e:
         logger.warning("%s: %s", failed, e)

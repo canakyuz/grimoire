@@ -40,7 +40,7 @@ import io
 import json
 import re
 import zipfile
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
@@ -50,6 +50,7 @@ from ...http_headers import content_disposition
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import WikiPage
+from ...services import untrusted_yaml
 from ._helpers import (
     assert_can_manage,
     can_view,
@@ -820,8 +821,8 @@ def _records_from_zip(data: bytes) -> tuple:
                 foldered.add(fn, raw.decode("utf-8", "replace"))
             elif base.endswith(".json"):
                 try:
-                    obj = json.loads(raw.decode("utf-8", "replace"))
-                except json.JSONDecodeError:
+                    obj = _load_json(raw)
+                except ValueError:
                     continue
                 if isinstance(obj, dict) and "grimoire_wiki_version" in obj:
                     bundle = obj
@@ -847,10 +848,27 @@ def _parse_upload(filename: Optional[str], data: bytes) -> tuple:
         return [parse_markdown_file(filename or "", data.decode("utf-8", "replace"))], "markdown"
     # Default (incl. .lk, which LegendKeeper exports as a JSON bundle): JSON.
     try:
-        obj = json.loads(data.decode("utf-8", "replace"))
-    except json.JSONDecodeError:
+        obj = _load_json(data)
+    except ValueError:
         raise HTTPException(400, "File is not valid JSON, markdown, or a zip archive")
     return _records_from_json_obj(obj)
+
+
+def _load_json(raw: bytes) -> Any:
+    """Parse an uploaded JSON file, or raise ValueError if it can't be read.
+
+    JSON nested too deeply is unreadable too: past the interpreter's recursion
+    limit the parser raises RecursionError rather than a decode error, and
+    anything nested deeper than ``untrusted_yaml.MAX_DEPTH`` would run the page
+    converters, which recurse through the document, out of stack instead.
+    """
+    try:
+        obj = json.loads(raw.decode("utf-8", "replace"))
+    except RecursionError:
+        raise ValueError("nested too deeply") from None
+    if untrusted_yaml.too_deep(obj):
+        raise ValueError("nested too deeply")
+    return obj
 
 
 def _parse_folder_upload(uploads: list) -> tuple:

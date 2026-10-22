@@ -237,6 +237,16 @@ class TestUploadServeRemove:
     def test_the_bytes_must_be_an_image(self, client, admin_headers, knight):
         assert _upload(client, admin_headers, knight["id"], raw=b"MZ not a png").status_code == 400
 
+    @pytest.mark.parametrize("fmt", ["TIFF", "PPM"])
+    def test_only_the_accepted_formats_decode(self, client, admin_headers, knight, fmt):
+        # A format Pillow reads but the field does not offer, sent as a PNG.
+        from PIL import Image
+
+        buffer = io.BytesIO()
+        Image.new("RGB", (4, 4), "red").save(buffer, format=fmt)
+        resp = _upload(client, admin_headers, knight["id"], raw=buffer.getvalue())
+        assert resp.status_code == 400
+
     def test_the_size_is_capped(self, client, admin_headers, knight, monkeypatch):
         from backend.routers.characters import portraits
 

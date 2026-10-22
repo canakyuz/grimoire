@@ -65,6 +65,10 @@ class SettingsPatch(BaseModel):
     oidc_button_border_color: Optional[str] = None
     oidc_button_radius: Optional[str] = None
     oidc_groups_claim: Optional[str] = None
+    # The group granting each role; "" resets it to admin / gm / player.
+    oidc_admin_group: Optional[str] = None
+    oidc_gm_group: Optional[str] = None
+    oidc_player_group: Optional[str] = None
     oidc_permissions_claim: Optional[str] = None
     oidc_match_by: Optional[str] = None
     oidc_auto_launch: Optional[bool] = None
@@ -149,6 +153,9 @@ class SettingsResponse(BaseModel):
     # Relative URL of the normalized icon ("" when none), cache-busted by version.
     oidc_button_icon_url: str
     oidc_groups_claim: str
+    oidc_admin_group: str
+    oidc_gm_group: str
+    oidc_player_group: str
     oidc_permissions_claim: str
     oidc_match_by: str
     oidc_auto_launch: bool
@@ -172,6 +179,9 @@ class SettingsResponse(BaseModel):
     oidc_button_radius_env_locked: bool
     oidc_button_icon_env_locked: bool
     oidc_groups_claim_env_locked: bool
+    oidc_admin_group_env_locked: bool
+    oidc_gm_group_env_locked: bool
+    oidc_player_group_env_locked: bool
     oidc_permissions_claim_env_locked: bool
     oidc_match_by_env_locked: bool
     oidc_enabled_env_locked: bool

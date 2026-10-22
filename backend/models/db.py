@@ -19,6 +19,7 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
+from .. import sql_functions
 from .base import Base
 
 logger = logging.getLogger("grimoire.db")
@@ -658,6 +659,7 @@ def init_db(db_path: str) -> Tuple[Engine, sessionmaker[Session]]:
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.execute("PRAGMA busy_timeout=30000")
         cursor.close()
+        sql_functions.register(dbapi_connection)
 
     # Serialize migrations across workers: init_db runs once per process (at
     # config import), so with multiple uvicorn workers several may reach this

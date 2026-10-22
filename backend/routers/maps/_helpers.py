@@ -14,7 +14,7 @@ from PIL import Image as PILImage  # type: ignore[import-untyped]
 from ...config import PAGE_CACHE_DIR, valkey_client, logger, valkey_cache_set
 from ...indexer import MAP_OPAQUE_EXTS, VTT_DATA_EXTS, archive_ext, map_video_mime
 from ...render import pool as render_pool
-from ...render.ops import PageOutOfRange
+from ...render.ops import PageOutOfRange, WidthOutOfRange
 from .vtt_authoring import VttDataError, normalize_vtt_data
 
 
@@ -77,7 +77,7 @@ def render_map_pdf_page(filepath: str, page_num: int, width: int) -> bytes:
 
     try:
         img_bytes = render_pool.render_page(filepath, page_num, width)
-    except PageOutOfRange as e:
+    except (PageOutOfRange, WidthOutOfRange) as e:
         raise ValueError(str(e)) from None
 
     if not valkey_cache_set(valkey_key, img_bytes):

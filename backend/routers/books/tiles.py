@@ -22,7 +22,7 @@ from ...file_cache import etag_matches
 from ...indexer.formats import is_fitz_mime
 from ...services.content_cache import content_token, page_cache_prefix
 from ...render import pool as render_pool
-from ...render.ops import TILE_SIZE, tile_clip, tile_grid  # noqa: F401  re-exported
+from ...render.ops import MAX_RENDER_WIDTH, TILE_SIZE, tile_clip, tile_grid  # noqa: F401  re-exported
 from ._helpers import _cached_book_info
 from ._render_cache import render_errors, serve_cached_render
 from .pages import _authorize_book, _mark_missing
@@ -31,7 +31,7 @@ from .pages import _authorize_book, _mark_missing
 # tile sets to cache rather than one per pixel of window width.
 WIDTH_STEP = 256
 MIN_WIDTH = WIDTH_STEP
-MAX_WIDTH = 16384
+MAX_WIDTH = MAX_RENDER_WIDTH
 
 
 def serve_book_page_tile(

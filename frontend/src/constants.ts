@@ -9,6 +9,14 @@ import {
   LuPackage,
   LuNewspaper,
 } from 'react-icons/lu'
+import type { IconType } from 'react-icons'
+
+/** The fields these helpers read from a book record (list item or detail). */
+interface BookLike {
+  filename?: string | null
+  filepath?: string | null
+  mime_type?: string | null
+}
 
 export const CATEGORY_ORDER = [
   'core',
@@ -22,7 +30,7 @@ export const CATEGORY_ORDER = [
   'homebrew',
 ]
 
-export const CATEGORY_LABELS = {
+export const CATEGORY_LABELS: Record<string, string> = {
   core: 'Core Rulebooks',
   'starter-set': 'Starter Set',
   supplement: 'Supplements & Sourcebooks',
@@ -34,7 +42,7 @@ export const CATEGORY_LABELS = {
   homebrew: 'Homebrew',
 }
 
-export const CATEGORY_ICONS = {
+export const CATEGORY_ICONS: Record<string, IconType> = {
   core: LuBook,
   'starter-set': LuPackage,
   supplement: LuBookOpen,
@@ -66,7 +74,7 @@ const ARCHIVE_MIME_TYPES = new Set([
 const COMIC_EXTENSIONS = ['.cbz', '.cbr', '.cb7', '.cbt']
 
 /** True when a book record is a comic-book archive read as a page sequence. */
-export function isComicBook(book) {
+export function isComicBook(book: BookLike | null | undefined): boolean {
   const name = book?.filename || book?.filepath || ''
   return COMIC_EXTENSIONS.some((ext) => name.toLowerCase().endsWith(ext))
 }
@@ -78,8 +86,8 @@ export function isComicBook(book) {
  * treating them as opaque downloads is exactly the behaviour issue #180 asked
  * us to change.
  */
-export function isArchiveBook(book) {
-  return !!book && ARCHIVE_MIME_TYPES.has(book.mime_type) && !isComicBook(book)
+export function isArchiveBook(book: BookLike | null | undefined): boolean {
+  return !!book && ARCHIVE_MIME_TYPES.has(book.mime_type ?? '') && !isComicBook(book)
 }
 
 // MIME types for plain-text books (.txt/.md/.rtf) rendered as formatted text
@@ -87,8 +95,8 @@ export function isArchiveBook(book) {
 const TEXT_MIME_TYPES = new Set(['text/plain', 'text/markdown', 'application/rtf'])
 
 /** True when a book record is a plain-text document. */
-export function isTextBook(book) {
-  return !!book && TEXT_MIME_TYPES.has(book.mime_type)
+export function isTextBook(book: BookLike | null | undefined): boolean {
+  return !!book && TEXT_MIME_TYPES.has(book.mime_type ?? '')
 }
 
 /**
@@ -98,7 +106,7 @@ export function isTextBook(book) {
  * multi-page scanned document that the backend renders page by page like a PDF,
  * so treating it as a flat image would strip its paging (issue #373).
  */
-export function isSingleImageBook(book) {
+export function isSingleImageBook(book: BookLike | null | undefined): boolean {
   return !!book && !!book.mime_type?.startsWith('image/') && book.mime_type !== 'image/vnd.djvu'
 }
 
@@ -107,15 +115,15 @@ export function isSingleImageBook(book) {
  * are matched on their stored `mime_type` — media rows carry no MIME column, so
  * the backend serialises an explicit `is_archive` flag (issue #250).
  */
-export function isArchiveMedia(item) {
+export function isArchiveMedia(item: { is_archive?: boolean | null } | null | undefined): boolean {
   return !!item && !!item.is_archive
 }
 
 /**
- * Create a URL-safe slug from a name. Mirrors `slugify` in `backend/indexer.py`
+ * Create a URL-safe slug from a name. Mirrors `slugify` in `backend/indexer/categories.py`
  * so custom category names entered in the UI match what the backend produces.
  */
-export function slugify(name) {
+export function slugify(name: string | null | undefined): string {
   return (name || '')
     .toLowerCase()
     .trim()
@@ -126,6 +134,6 @@ export function slugify(name) {
 }
 
 /** Friendly label for a category slug, falling back to the slug itself. */
-export function categoryLabel(slug) {
+export function categoryLabel(slug: string): string {
   return CATEGORY_LABELS[slug] || slug
 }

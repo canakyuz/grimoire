@@ -53,7 +53,9 @@ class ContentPack(Base):
     __tablename__ = "content_packs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    pack_id: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    # Unique through the table's constraint below, and indexed separately, as
+    # migration 0038 created them.
+    pack_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     schema_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
     version: Mapped[Optional[str]] = mapped_column(String(20), default="1.0.0")
@@ -73,6 +75,8 @@ class ContentPack(Base):
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
+    __table_args__ = (UniqueConstraint("pack_id"),)
+
 
 class ContentEntry(Base):
     """One catalog entry — a spell, a class, a feat.
@@ -91,7 +95,11 @@ class ContentEntry(Base):
     __tablename__ = "content_entries"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    pack_id: Mapped[str] = mapped_column(String(36), ForeignKey("content_packs.id"), nullable=False, index=True)
+    # Entries exist only as an index of their pack's JSON, so the database drops
+    # them with the pack (``packs._forget`` deletes the pack row alone).
+    pack_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("content_packs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
 
     schema_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     content_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)

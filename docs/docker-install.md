@@ -202,7 +202,8 @@ for example with `openssl rand -hex 32` or a password generator, and paste it in
 
 Never copy a value from documentation or a forum post, and do not use a placeholder
 like `change-me`. A known signing key would let anyone sign in as any user on your
-instance, so Grimoire refuses to start on values that have appeared in its own docs.
+instance, so Grimoire refuses to start on values that have appeared in its own docs,
+including the `<paste the generated value here>` line above left as it is.
 See [the FAQ](faq.md#grimoire-wont-start-and-the-log-mentions-secret_key) if you hit
 that error.
 

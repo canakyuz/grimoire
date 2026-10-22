@@ -47,6 +47,12 @@ _TRUST_FORWARDED = os.environ.get("TRUST_FORWARDED_FOR", "true").strip().lower()
 # Traefik, Caddy, Cloudflare Tunnel or Tailscale in front of Grimoire need no
 # setting. A proxy reaching Grimoire from a public address (a VPS, say) is added
 # here; until then its clients share one bucket.
+#
+# Any client connecting from one of these ranges is believed, though: a LAN or
+# Tailscale-over-IPv6 (fd7a:115c:a1e0::/48) client names its own address in the
+# header, and behind Docker Desktop's or rootlesskit's port forwarding every
+# client - internet ones included - arrives from a private gateway address.
+# docs/security.md recommends TRUST_FORWARDED_FOR=false for those setups.
 _DEFAULT_TRUSTED_PROXIES = "127.0.0.0/8,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7"
 
 
@@ -141,6 +147,33 @@ def client_ip(request: Any) -> str:
     return hops[0] if hops else peer
 
 
+# An IPv6 host is usually given a whole /64 and can pick any address in it, so
+# one client could otherwise rotate through fresh rate-limit buckets.
+_IPV6_RATE_LIMIT_PREFIX = 64
+
+
+def rate_limit_key(request: Any) -> str:
+    """The client's rate-limit bucket: :func:`client_ip`, widened to its /64 for a
+    global IPv6 address.
+
+    Private, link-local and loopback IPv6 addresses keep their own bucket, as
+    every device on one LAN segment shares a /64. Active Sessions still shows
+    the full address from :func:`client_ip`.
+    """
+    ip = client_ip(request)
+    try:
+        addr = ipaddress.ip_address(ip.strip("[]"))
+    except ValueError:
+        return ip
+    if isinstance(addr, ipaddress.IPv6Address):
+        if addr.ipv4_mapped is not None:
+            return str(addr.ipv4_mapped)
+        if addr.is_global:
+            net = ipaddress.IPv6Network((addr, _IPV6_RATE_LIMIT_PREFIX), strict=False)
+            return str(net)
+    return ip
+
+
 # The timeouts make "down" mean seconds: without them a login against an
 # unreachable host waits out the OS TCP connect timeout first. slowapi annotates
 # storage_options as Dict[str, str], but it is passed to the redis client as
@@ -157,7 +190,7 @@ _storage_options: dict[str, Any] = (
 # swallow_errors + in_memory_fallback: if the Valkey store is down, degrade to
 # in-memory limiting instead of erroring the request open or closed.
 limiter = Limiter(
-    key_func=client_ip,
+    key_func=rate_limit_key,
     storage_uri=VALKEY_URL or "memory://",
     storage_options=_storage_options,
     in_memory_fallback_enabled=True,
@@ -187,7 +220,7 @@ def api_key_attempts_blocked(request: Request) -> bool:
         return False
     try:
         return not limiter.limiter.test(
-            _API_KEY_FAILURE_LIMIT, _API_KEY_FAILURE_SCOPE, client_ip(request)
+            _API_KEY_FAILURE_LIMIT, _API_KEY_FAILURE_SCOPE, rate_limit_key(request)
         )
     except Exception:
         # Match the limiter's own swallow_errors: a broken store fails open
@@ -199,7 +232,7 @@ def record_api_key_failure(request: Request) -> None:
     if not limiter.enabled:
         return
     try:
-        limiter.limiter.hit(_API_KEY_FAILURE_LIMIT, _API_KEY_FAILURE_SCOPE, client_ip(request))
+        limiter.limiter.hit(_API_KEY_FAILURE_LIMIT, _API_KEY_FAILURE_SCOPE, rate_limit_key(request))
     except Exception:
         pass
 
@@ -222,7 +255,7 @@ def share_attempts_blocked(request: Request, scope: str, key: str = "") -> bool:
     if not limiter.enabled:
         return False
     try:
-        return not limiter.limiter.test(_SHARE_LIMIT, scope, f"{client_ip(request)}:{key}")
+        return not limiter.limiter.test(_SHARE_LIMIT, scope, f"{rate_limit_key(request)}:{key}")
     except Exception:
         return False
 
@@ -231,7 +264,7 @@ def record_share_failure(request: Request, scope: str, key: str = "") -> None:
     if not limiter.enabled:
         return
     try:
-        limiter.limiter.hit(_SHARE_LIMIT, scope, f"{client_ip(request)}:{key}")
+        limiter.limiter.hit(_SHARE_LIMIT, scope, f"{rate_limit_key(request)}:{key}")
     except Exception:
         pass
 

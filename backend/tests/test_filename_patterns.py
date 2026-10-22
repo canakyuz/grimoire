@@ -3,10 +3,16 @@
 The examples are the reporters' own filenames: if these stop reading, the
 feature has stopped doing the one thing it was asked for.
 """
+import random
+import re
+import time
+
 import pytest
 
+from backend.services.filename_rules import pattern as pattern_module
 from backend.services.filename_rules.pattern import (
     FIELDS,
+    MAX_PLACEHOLDERS,
     READ_FIELDS,
     PatternError,
     clean_value,
@@ -157,3 +163,104 @@ class TestParsing:
 
     def test_keeps_the_trimmed_source(self):
         assert parse("  {title}  ").source == "{title}"
+
+
+def _reference_regex(pattern):
+    """The single regex reading used to be: still the definition of a match."""
+
+    def literal(text):
+        return r"\s+".join(re.escape(chunk) for chunk in re.split(r"\s+", text))
+
+    def part_regex(part):
+        if isinstance(part, pattern_module._Optional):
+            return "(?:" + "".join(part_regex(p) for p in part.parts) + ")?"
+        if isinstance(part, pattern_module._Field):
+            if part.name == "*":
+                return r".+?"
+            return f"(?P<{part.name}>{pattern_module._FIELD_REGEX[part.name]})"
+        return literal(part)
+
+    return re.compile("^" + "".join(part_regex(p) for p in pattern.parts) + "$", re.IGNORECASE)
+
+
+def _reference_read(pattern, filename):
+    match = _reference_regex(pattern).match(pattern_module._stem(filename))
+    if not match:
+        return None
+    return {k: v for k, v in match.groupdict().items() if v is not None}
+
+
+class TestMatchingSemantics:
+    """Reading settles on the same match the pattern's regex would."""
+
+    @pytest.mark.parametrize(
+        "source, name, expected",
+        [
+            # A lazy field takes as little as it can: the first " - " splits.
+            ("{title} - {*}", "A - B - C.pdf", {"title": "A"}),
+            ("{*} - {title}", "A - B - C.pdf", {"title": "B - C"}),
+            # An optional part is taken when it can be.
+            ("{title}< ({year})>", "Book (2020).pdf", {"title": "Book", "year": 2020}),
+            ("{title}< ({year})>", "Book (20).pdf", {"title": "Book (20)"}),
+            # A year is four digits, so it can't swallow the title's number.
+            ("{title} {year}", "Top 10 2019.pdf", {"title": "Top 10", "year": 2019}),
+            # Whitespace in a literal matches any run of it, and a field after a
+            # trailing run starts at the first character that isn't whitespace.
+            ("{publisher} -  {title}", "Acme -    Book.pdf", {"publisher": "Acme", "title": "Book"}),
+            ("{title} by {authors}", "Tome BY  Ann and Bo.pdf", {"title": "Tome", "authors": ["Ann", "Bo"]}),
+            # The longest ISBN wins, as a greedy match would have it.
+            ("{title} {isbn}", "Book 1234567890123.pdf", {"title": "Book", "isbn": "1234567890123"}),
+            # A trailing extension is not part of the stem; a dot inside it is.
+            ("{title} v{version}", "Rules v1.2.pdf", {"title": "Rules", "version": "1.2"}),
+            # A newline is not "anything", but whitespace in a literal takes it.
+            ("{title} {year}", "A\nB 2020.pdf", None),
+            ("{title} {year}", "AB\n2020.pdf", {"title": "AB", "year": 2020}),
+        ],
+    )
+    def test_tricky_names(self, source, name, expected):
+        assert parse(source).read(name) == expected
+
+    def test_agrees_with_the_regex_on_a_spread_of_names(self):
+        rng = random.Random(521)
+        sources = [
+            READ_PATTERN,
+            WRITE_PATTERN,
+            "{title}< - {publisher}>< ({year})>",
+            "{*} {title} {date}",
+            "{title}<, {version}> [{isbn}]",
+            "{category} - {title}< by {authors}>",
+            "<{publisher} - >{title} {*}",
+        ]
+        alphabet = "ab -()[],v.0123456789Xx_ \t"
+        for source in sources:
+            pattern = parse(source)
+            for _ in range(300):
+                name = "".join(rng.choice(alphabet) for _ in range(rng.randint(1, 40)))
+                # Seed some names with the pattern's own literals so they match.
+                if rng.random() < 0.5:
+                    name = re.sub(r"\{[^}]*\}", lambda m: rng.choice(["x", "2020", "a b"]), source)
+                    name = name.replace("<", "").replace(">", "") + ".pdf"
+                assert pattern._matcher.match(pattern_module._stem(name)) == _reference_read(
+                    pattern, name
+                ), (source, name)
+
+    def test_a_name_that_cannot_fit_is_settled_quickly(self):
+        """Ten wildcards against a 255-character name used to backtrack for minutes."""
+        pattern = parse("{*} " * 10 + "- {title}")
+        started = time.perf_counter()
+        assert pattern.read("a " * 127 + "a") is None
+        assert time.perf_counter() - started < 1
+
+    def test_the_worst_pattern_allowed_is_still_quick(self):
+        pattern = parse("{*}-" * (MAX_PLACEHOLDERS - 1) + "{title}!")
+        started = time.perf_counter()
+        assert pattern.read("-" * 255) is None
+        assert time.perf_counter() - started < 1
+
+    def test_a_name_longer_than_any_file_is_not_read(self):
+        assert parse("{title}").read("a" * 2000 + ".pdf") is None
+
+    def test_too_many_placeholders_are_refused(self):
+        with pytest.raises(PatternError, match=f"at most {MAX_PLACEHOLDERS}"):
+            parse("{*} " * MAX_PLACEHOLDERS + "{title}")
+        parse("{*} " * (MAX_PLACEHOLDERS - 1) + "{title}")

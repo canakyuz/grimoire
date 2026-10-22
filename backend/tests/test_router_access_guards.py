@@ -33,7 +33,6 @@ GUARDS = {
 ALLOWED_UNGUARDED = {
     "campaigns/core.py": "admin view of a user's campaigns: system names only",
     "campaigns/resources.py": "names of resources a GM already linked; campaign visibility applies",
-    "campaigns/wiki_templates.py": "the campaign's own system, by id",
     "duplicates/_helpers.py": "admin-only duplicate finder",
     "library/_helpers.py": "admin-only library scan and file management",
     "lookups/_helpers.py": "metadata autocomplete counts, no titles or ids",

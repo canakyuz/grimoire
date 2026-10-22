@@ -111,8 +111,12 @@ class Character(Base):
     # The campaign this character is played in, if any. Nullable because a
     # character may exist before a campaign does — a player rolls one up and
     # joins a table later — and because a character can outlive the game it was
-    # made for. Setting it lets the party see the sheet.
-    campaign_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("campaigns.id"), nullable=True, index=True)
+    # made for. Setting it lets the party see the sheet. Deleting the campaign
+    # unlinks it (``ON DELETE SET NULL``; the campaign delete also clears
+    # ``gm_can_edit``, as moving the character out of a campaign does).
+    campaign_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("campaigns.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     # Where the character stands in their story: "active", "retired" or
     # "dead". A player whose character falls rolls a new one in the same

@@ -115,6 +115,44 @@ class TestBookExport:
         )
         assert resp.status_code == 400
 
+    def test_an_export_over_the_total_is_400_before_rendering(
+        self, client, admin_headers, sys_row, tmp_path, monkeypatch
+    ):
+        from backend import config
+        from backend.render import pool
+
+        doc = fitz.open()
+        for _ in range(100):
+            doc.new_page(width=612, height=792)
+        path = str(tmp_path / "chapter.pdf")
+        doc.save(path)
+        doc.close()
+        book = make_book(
+            system_id=sys_row.id,
+            filename="chapter.pdf",
+            filepath=path,
+            mime_type="application/pdf",
+            page_count=100,
+        )
+        rendered = []
+        monkeypatch.setattr(
+            "backend.services.page_export.bundle.render_region", lambda *a: rendered.append(a)
+        )
+        # In process, so the patched renderer is the one the export would use.
+        pool.shutdown()
+        monkeypatch.setattr(config, "RENDER_WORKERS", 0)
+        try:
+            resp = client.post(
+                f"/api/books/{book.id}/export",
+                json={"kind": "pages", "format": "png", "dpi": 600, "pages": "1-100"},
+                headers=admin_headers,
+            )
+        finally:
+            pool.shutdown()
+        assert resp.status_code == 400
+        assert "megapixels" in resp.json()["detail"]
+        assert rendered == []
+
     def test_invalid_dpi_is_422(self, client, admin_headers, pdf_book):
         resp = client.post(
             f"/api/books/{pdf_book.id}/export",

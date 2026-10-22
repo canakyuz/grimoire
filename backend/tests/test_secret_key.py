@@ -56,17 +56,67 @@ class TestExplicitKey:
         assert caplog.text == ""
 
 
-def test_every_key_value_in_the_docs_is_refused():
-    """A SECRET_KEY written out in the repo's docs or compose files never starts a server."""
+def _documented_key_values():
+    """Every value written after ``SECRET_KEY=`` / ``SECRET_KEY:`` in the repo's docs,
+    README and compose files, as (file, value) pairs with any YAML comment and
+    surrounding quotes removed."""
     import re
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[2]
-    files = [*root.glob("docs/**/*.md"), *root.glob("docs/**/*.yml"), *root.glob("*.yml"), root / "README.md"]
-    pattern = re.compile(r"SECRET_KEY\s*[=:]\s*['\"]?([A-Za-z0-9_\-]{8,})")
+    files = [
+        *root.glob("docs/**/*.md"),
+        *root.glob("docs/**/*.yml"),
+        *root.glob("*.yml"),
+        *root.glob("*.yaml"),
+        *root.glob("*.example"),
+        root / "README.md",
+    ]
+    pattern = re.compile(r"SECRET_KEY['\"]?[ \t]*[=:][ \t]*([^\n`]*)")
+    values = []
     for path in files:
         for match in pattern.finditer(path.read_text(encoding="utf-8")):
-            assert match.group(1) in REJECTED_SECRET_KEYS, f"{path.name}: {match.group(1)}"
+            value = re.split(r"\s+#", match.group(1), maxsplit=1)[0].strip()
+            values.append((path.relative_to(root).as_posix(), value.strip("'\"")))
+    return values
+
+
+def test_every_key_value_in_the_docs_is_refused(tmp_path):
+    """A SECRET_KEY written out in the repo's docs or compose files never starts a server.
+
+    Two kinds of value can't reach the app as written, so they are skipped: an
+    empty one (Grimoire then generates its own key) and a shell or compose
+    substitution like ``$(openssl rand -hex 32)``, which the shell replaces with
+    a fresh random value before Grimoire sees it.
+    """
+    values = _documented_key_values()
+    assert any(value for _, value in values), "found no documented SECRET_KEY values"
+    for name, value in values:
+        if not value or value.startswith("$"):
+            continue
+        with pytest.raises(InsecureSecretKeyError):
+            resolve_secret_key(value, str(tmp_path))
+            pytest.fail(f"{name}: SECRET_KEY={value!r} would start a server")
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "<paste the generated value here>",
+        "<your-secret-key>",
+        '"<paste the generated value here>"',
+        "'<generated key>'",
+        "  <x>  ",
+    ],
+)
+def test_angle_bracket_placeholders_are_refused(value, tmp_path):
+    with pytest.raises(InsecureSecretKeyError):
+        resolve_secret_key(value, str(tmp_path))
+
+
+@pytest.mark.parametrize("value", ["<starts-with-a-bracket" + "k" * 32, "k" * 32 + "ends-with>"])
+def test_a_key_merely_containing_a_bracket_is_accepted(value, tmp_path):
+    assert resolve_secret_key(value, str(tmp_path)) == value
 
 
 class TestGeneratedKey:

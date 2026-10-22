@@ -63,6 +63,49 @@ class TestOIDCSettings:
             json={"oidc_issuer_url": "", "oidc_client_id": "", "oidc_groups_claim": ""},
         )
 
+    def test_role_group_names_default_save_and_reset(self, client, admin_headers):
+        body = client.get("/api/settings", headers=admin_headers).json()
+        assert (body["oidc_admin_group"], body["oidc_gm_group"], body["oidc_player_group"]) == (
+            "admin", "gm", "player"
+        )
+        assert body["oidc_admin_group_env_locked"] is False
+        try:
+            resp = client.patch(
+                "/api/settings",
+                headers=admin_headers,
+                json={"oidc_admin_group": "  grimoire-admin ", "oidc_gm_group": "grimoire-gm"},
+            )
+            assert resp.status_code == 200
+            body = resp.json()
+            assert body["oidc_admin_group"] == "grimoire-admin"
+            assert body["oidc_gm_group"] == "grimoire-gm"
+            assert body["oidc_player_group"] == "player"
+        finally:
+            # A blank name goes back to the default.
+            resp = client.patch(
+                "/api/settings",
+                headers=admin_headers,
+                json={"oidc_admin_group": "", "oidc_gm_group": ""},
+            )
+        assert resp.json()["oidc_admin_group"] == "admin"
+        assert resp.json()["oidc_gm_group"] == "gm"
+
+    def test_role_group_names_can_be_pinned_by_env(self, client, admin_headers, monkeypatch):
+        import backend.routers.settings.core as core
+        import backend.routers.settings._helpers as helpers
+
+        env = dict(core.OIDC_ENV)
+        env["oidc_admin_group"] = "sso-admins"
+        monkeypatch.setattr(core, "OIDC_ENV", env)
+        monkeypatch.setattr(helpers, "OIDC_ENV", env)
+        resp = client.patch(
+            "/api/settings", headers=admin_headers, json={"oidc_admin_group": "other"}
+        )
+        assert resp.status_code == 400
+        body = client.get("/api/settings", headers=admin_headers).json()
+        assert body["oidc_admin_group"] == "sso-admins"
+        assert body["oidc_admin_group_env_locked"] is True
+
     def test_match_by_validation(self, client, admin_headers):
         resp = client.patch(
             "/api/settings",
@@ -79,6 +122,26 @@ class TestOIDCSettings:
             json={"oidc_signing_alg": "MD5"},
         )
         assert resp.status_code == 400
+
+    def test_unsupported_env_signing_alg_is_logged(self, monkeypatch, caplog):
+        import backend.routers.settings._helpers as helpers
+
+        monkeypatch.setattr(helpers, "OIDC_ENV", {"oidc_signing_alg": "HS256"})
+        with caplog.at_level("WARNING", logger=helpers.logger.name):
+            helpers._warn_unsupported_signing_alg_env()
+        assert "OIDC_SIGNING_ALG='HS256' is not supported" in caplog.text
+        caplog.clear()
+        monkeypatch.setattr(helpers, "OIDC_ENV", {"oidc_signing_alg": "ES256"})
+        with caplog.at_level("WARNING", logger=helpers.logger.name):
+            helpers._warn_unsupported_signing_alg_env()
+        assert caplog.text == ""
+
+    def test_hs256_is_no_longer_offered(self, client, admin_headers):
+        resp = client.patch(
+            "/api/settings", headers=admin_headers, json={"oidc_signing_alg": "HS256"}
+        )
+        assert resp.status_code == 400
+        assert "HS256" not in resp.json()["detail"]
 
     def test_client_secret_set_clear_mask(self, client, admin_headers):
         # Set
@@ -599,10 +662,60 @@ class TestOIDCLoginStart:
                 },
             )
 
+
+def _seed_state(client, state, payload):
+    """Store a sign-in's state as /openid/login would, and give the test
+    client the browser cookie that goes with it."""
+    from backend.routers.oidc import core as oidc_core
+
+    browser = f"browser-{state}"
+    oidc_core._state_store.put(state, {**payload, "browser": browser})
+    client.cookies.delete(oidc_core.OIDC_FLOW_COOKIE)
+    client.cookies.set(oidc_core.OIDC_FLOW_COOKIE, browser)
+
+
+
 class TestOIDCCallback:
     """The callback exchanges the code, resolves the user, and signs them in
     with HttpOnly session and refresh cookies (issue #156). No token rides on
     the redirect: the SPA resumes the session from the refresh cookie."""
+
+    @pytest.fixture(autouse=True)
+    def _forget_flow_cookie(self, client):
+        # _seed_state's cookie isn't scoped like the server's, so the server
+        # clearing its own wouldn't remove it from the shared test client.
+        yield
+        client.cookies.delete("grimoire_oidc_flow")
+
+    def test_callback_from_another_browser_is_refused(self, client):
+        from backend.routers.oidc import core as oidc_core
+
+        oidc_core._state_store.put(
+            "state-elsewhere",
+            {"code_verifier": "v", "nonce": "n", "return_to": "/", "browser": "the-starter"},
+        )
+        client.cookies.set("grimoire_oidc_flow", "someone-else")
+        resp = client.get(
+            "/api/auth/openid/callback?code=abc&state=state-elsewhere", follow_redirects=False
+        )
+        assert resp.headers["location"].startswith("/login?oidc_error=")
+        assert "another+browser" in resp.headers["location"]
+        # Spent: the starter can't use the link afterwards either.
+        assert oidc_core._state_store.pop("state-elsewhere") is None
+
+    def test_state_without_a_browser_binding_is_refused(self, client):
+        """State stored by a version without the binding (e.g. in Valkey
+        across an upgrade) is refused rather than trusted."""
+        from backend.routers.oidc import core as oidc_core
+
+        oidc_core._state_store.put(
+            "state-unbound", {"code_verifier": "v", "nonce": "n", "return_to": "/"}
+        )
+        client.cookies.set("grimoire_oidc_flow", "anything")
+        resp = client.get(
+            "/api/auth/openid/callback?code=abc&state=state-unbound", follow_redirects=False
+        )
+        assert resp.headers["location"].startswith("/login?oidc_error=")
 
     def _configure(self, client, admin_headers):
         client.patch(
@@ -642,7 +755,7 @@ class TestOIDCCallback:
         self._configure(client, admin_headers)
         try:
             # Seed the state the login step would have stored.
-            oidc_core._state_store.put(
+            _seed_state(client,
                 "state123",
                 {"code_verifier": "verifier", "nonce": "nonce123", "return_to": "/"},
             )
@@ -696,7 +809,7 @@ class TestOIDCCallback:
 
         self._configure(client, admin_headers)
         try:
-            oidc_core._state_store.put(
+            _seed_state(client,
                 "state-evil",
                 {"code_verifier": "verifier", "nonce": "nonce123", "return_to": return_to},
             )
@@ -727,7 +840,7 @@ class TestOIDCCallback:
     def test_callback_idp_error_redirects_to_login(self, client):
         from backend.routers.oidc import core as oidc_core
 
-        oidc_core._state_store.put(
+        _seed_state(client,
             "state-denied", {"code_verifier": "v", "nonce": "n", "return_to": "/"}
         )
         resp = client.get(
@@ -757,9 +870,8 @@ class TestOIDCCallback:
         assert "invalid" in location
 
     def test_callback_error_description_never_plants_a_fragment(self, client):
-        from backend.routers.oidc import core as oidc_core
 
-        oidc_core._state_store.put(
+        _seed_state(client,
             "state-frag", {"code_verifier": "v", "nonce": "n", "return_to": "/"}
         )
         resp = client.get(
@@ -794,7 +906,7 @@ class TestOIDCCallback:
 
         self._configure(client, admin_headers)
         try:
-            oidc_core._state_store.put(
+            _seed_state(client,
                 "state-fail",
                 {"code_verifier": "verifier", "nonce": "n", "return_to": "/"},
             )
@@ -866,10 +978,37 @@ class TestRoleFromGroups:
         claims = {"groups": ["Admin"]}
         assert _role_from_groups(claims, "groups") == "admin"
 
-    def test_path_and_dash_prefixed_names(self):
-        # Keycloak-style /admin and Authentik-style grimoire-admin
+    def test_keycloak_top_level_path_matches(self):
+        # Keycloak's "full group path" form of a top-level group.
         assert _role_from_groups({"groups": ["/admin"]}, "groups") == "admin"
-        assert _role_from_groups({"groups": ["grimoire-gm"]}, "groups") == "gm"
+        assert _role_from_groups({"groups": ["/GM"]}, "groups") == "gm"
+
+    @pytest.mark.parametrize(
+        "group",
+        ["jellyfin-admin", "grimoire-gm", "media-player", "/nextcloud/admin", "/x/admin",
+         "admins", "superadmin", "admin/", "//admin"],
+    )
+    def test_only_exact_names_match(self, group):
+        # A group merely ending in a role name belongs to something else.
+        assert _role_from_groups({"groups": [group]}, "groups") is None
+
+    def test_configured_group_names_match_exactly(self):
+        names = {"admin": "grimoire-admin", "gm": "Grimoire GMs", "player": "/grimoire/players"}
+        assert _role_from_groups({"groups": ["grimoire-admin"]}, "groups", names) == "admin"
+        assert _role_from_groups({"groups": ["/grimoire-admin"]}, "groups", names) == "admin"
+        assert _role_from_groups({"groups": ["grimoire gms"]}, "groups", names) == "gm"
+        assert _role_from_groups({"groups": ["/grimoire/players"]}, "groups", names) == "player"
+        # The defaults no longer apply once a name is configured...
+        assert _role_from_groups({"groups": ["admin"]}, "groups", names) is None
+        # ...and the configured names are not suffix-matched either.
+        assert _role_from_groups({"groups": ["other-grimoire-admin"]}, "groups", names) is None
+        assert _role_from_groups({"groups": ["/a/grimoire-admin"]}, "groups", names) is None
+
+    def test_blank_configured_name_falls_back_to_the_default(self):
+        names = {"admin": "  ", "gm": "", "player": "players"}
+        assert _role_from_groups({"groups": ["admin"]}, "groups", names) == "admin"
+        assert _role_from_groups({"groups": ["gm"]}, "groups", names) == "gm"
+        assert _role_from_groups({"groups": ["player"]}, "groups", names) is None
 
     def test_string_groups_claim(self):
         # Some IdPs return a comma-separated string
@@ -1005,6 +1144,39 @@ class TestResolveUser:
                 },
                 self._eff(oidc_groups_claim="groups", oidc_auto_register=True),
             )
+            assert user.role == "gm"
+            db.delete(user)
+            db.commit()
+        finally:
+            db.close()
+
+    def test_lookalike_group_is_refused_not_promoted(self, client, admin_setup):
+        """Someone in another application's "jellyfin-admin" group is in none of
+        Grimoire's role groups, so the sign-in is refused like any other."""
+        from backend.config import SessionLocal
+        db = SessionLocal()
+        try:
+            with pytest.raises(_OIDCError, match="no matching group"):
+                _resolve_user(
+                    db,
+                    {"sub": "lookalike-sub", "groups": ["jellyfin-admin", "/media/admin"]},
+                    self._eff(oidc_groups_claim="groups", oidc_auto_register=True),
+                )
+        finally:
+            db.close()
+
+    def test_configured_group_names_are_used(self, client, admin_setup):
+        from backend.config import SessionLocal
+        db = SessionLocal()
+        try:
+            user = _resolve_user(
+                db,
+                {"sub": "named-group-sub", "preferred_username": "named_group",
+                 "groups": ["grimoire-gm", "gm"]},
+                self._eff(oidc_groups_claim="groups", oidc_auto_register=True,
+                          oidc_gm_group="grimoire-gm", oidc_player_group="gm"),
+            )
+            # "gm" is the player group here; "grimoire-gm" is what grants GM.
             assert user.role == "gm"
             db.delete(user)
             db.commit()
@@ -1255,7 +1427,7 @@ class TestValidateIdToken:
 
         return (
             patch.object(_helpers, "_get_jwks", return_value=self.JWKS),
-            patch.object(_helpers.joseju, "decode", decode),
+            patch.object(_helpers, "_decode", decode),
         )
 
     def _validate(self, **overrides):
@@ -1316,7 +1488,7 @@ class TestValidateIdToken:
             return claims
 
         with patch.object(_helpers, "_get_jwks", return_value=self.JWKS) as mock_jwks:
-            with patch.object(_helpers.joseju, "decode", decode):
+            with patch.object(_helpers, "_decode", decode):
                 assert self._validate()["sub"] == "s"
         # Second JWKS fetch is forced, so rotated keys are picked up.
         assert mock_jwks.call_args_list[-1].kwargs["force"] is True
@@ -1344,6 +1516,25 @@ class TestValidateIdToken:
         with get_jwks, decode:
             with pytest.raises(_OIDCError, match="alg HS256"):
                 self._validate(allowed_alg="RS256")
+
+    @pytest.mark.parametrize("alg", ["HS256", "none", ""])
+    def test_unsupported_configured_algorithm_fails_cleanly(self, alg):
+        from backend.routers.oidc import _helpers
+
+        with patch.object(_helpers, "_get_jwks") as get_jwks:
+            with pytest.raises(_OIDCError, match="not supported"):
+                self._validate(allowed_alg=alg)
+        # Refused before anything is fetched.
+        get_jwks.assert_not_called()
+
+    def test_decode_errors_other_than_jose_become_sign_in_errors(self):
+        def decode(*a, **k):
+            raise ValueError('Missing required field: "k"')
+
+        get_jwks, decode_patch = self._patch(decode)
+        with get_jwks, decode_patch:
+            with pytest.raises(_OIDCError, match="signature invalid"):
+                self._validate()
 
     def test_raises_on_nonce_mismatch(self):
         claims = FakeClaims({"nonce": "other"})
@@ -1538,6 +1729,39 @@ class TestResolveUserEdges:
                     self._eff(oidc_match_by="email"),
                 )
             db.delete(guest)
+            db.commit()
+        finally:
+            db.close()
+
+    def test_username_match_never_picks_an_admin_account(self, client, admin_setup):
+        """Most providers let people choose their login name, so it can't be
+        what hands someone an admin account. Any case of the name is refused."""
+        from backend.config import SessionLocal
+
+        db = SessionLocal()
+        try:
+            admin = self._make(db, username="LocalBoss")
+            admin.role = "admin"
+            db.commit()
+            for name in ("LocalBoss", "localboss", "LOCALBOSS"):
+                with pytest.raises(_OIDCError, match="auto-register"):
+                    _resolve_user(
+                        db,
+                        {"sub": f"boss-{name}", "preferred_username": name},
+                        self._eff(oidc_match_by="username"),
+                    )
+            # With auto-register on, the person gets a new account of their own.
+            other = _resolve_user(
+                db,
+                {"sub": "boss-sub", "preferred_username": "localboss"},
+                self._eff(oidc_match_by="username", oidc_auto_register=True),
+            )
+            db.refresh(admin)
+            assert other.id != admin.id
+            assert other.role == "player"
+            assert admin.oidc_subject is None
+            db.delete(other)
+            db.delete(admin)
             db.commit()
         finally:
             db.close()

@@ -1294,3 +1294,20 @@ class TestUserInstallApi:
         db.commit()
         assert user_importers.installed_for_user(db, player_id) == {}
         db.close()
+
+
+class TestDeeplyNestedFiles:
+    def test_a_file_too_deep_to_parse_is_a_400(self, client, admin_headers, addons_dir, clean_state):
+        _install(addons_dir, MANIFEST)
+        resp = _import(client, admin_headers, text="[" * 30000, filename="a.hero")
+        assert resp.status_code == 400
+        assert "nested too deeply" in resp.json()["detail"]
+
+    def test_a_file_deeper_than_the_limit_is_a_400(
+        self, client, admin_headers, addons_dir, clean_state
+    ):
+        _install(addons_dir, MANIFEST)
+        deep = '{"a": ' + "[" * 500 + "]" * 500 + "}"
+        resp = _import(client, admin_headers, text=deep, filename="a.hero")
+        assert resp.status_code == 400
+        assert "nested too deeply" in resp.json()["detail"]

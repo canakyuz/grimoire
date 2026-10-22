@@ -2,13 +2,13 @@
 
 A guest is a lightweight, code-only User (role="guest", no password/OIDC) backing
 a CampaignMember. The 10-char alphanumeric guest_code mints a JWT for that guest
-via POST /api/auth/guest-login. Guests are single-campaign: removing the member
-(here or via the generic member-removal endpoint) also deletes the guest User and
-its contributions (see delete_guest_user).
+via POST /api/auth/guest-login. A guest normally belongs to one campaign:
+removing the member (here or via the generic member-removal endpoint) also
+deletes the guest User and its contributions, unless an admin merged it into
+other campaigns it is still in (see release_guest_membership).
 """
 
 import secrets
-import string
 import urllib.parse
 from typing import Optional
 
@@ -20,21 +20,13 @@ from ...config import get_db, BASE_URL
 from ...models import Campaign, CampaignMember, User
 from ...sessions import revoke_user_sessions
 from ..settings._helpers import _get_raw, guest_access_effective
-from ._helpers import assert_can_manage, delete_guest_user, get_campaign_or_404
+from ._helpers import (
+    assert_can_manage,
+    generate_guest_code,
+    get_campaign_or_404,
+    release_guest_membership,
+)
 from ._schemas import GuestCreate
-
-_CODE_ALPHABET = string.ascii_uppercase + string.digits
-_CODE_LENGTH = 10
-
-
-def _generate_guest_code(db) -> str:
-    """Return a unique 10-char A–Z0–9 code, retrying on the rare collision."""
-    for _ in range(20):
-        code = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(_CODE_LENGTH))
-        if not db.query(CampaignMember).filter_by(guest_code=code).first():
-            return code
-    raise HTTPException(500, "Could not allocate a unique guest code")
-
 
 def _assert_guest_access(db):
     if not guest_access_effective(_get_raw(db)):
@@ -111,7 +103,7 @@ def create_guest(
     c = _get_managed_campaign(db, campaign_id, current_user)
 
     nickname = (data.nickname or "").strip() or "Guest"
-    code = _generate_guest_code(db)
+    code = generate_guest_code(db)
 
     guest_user = User(
         username=f"guest_{secrets.token_hex(8)}",
@@ -164,7 +156,7 @@ def regenerate_guest_code(
     _assert_guest_access(db)
     _get_managed_campaign(db, campaign_id, current_user)
     member = _get_guest_member(db, campaign_id, member_id)
-    member.guest_code = _generate_guest_code(db)
+    member.guest_code = generate_guest_code(db)
     # Regenerating the code is how a GM revokes a shared invite, so sessions
     # opened with the old code must end with it.
     revoke_user_sessions(db, member.user_id)
@@ -182,11 +174,11 @@ def remove_guest(
 ):
     _get_managed_campaign(db, campaign_id, current_user)
     member = _get_guest_member(db, campaign_id, member_id)
-    user_id = member.user_id
+    user_id, guest_code = member.user_id, member.guest_code
     db.delete(member)
-    # Guests are single-campaign — drop the backing User and its
-    # contributions too so no orphan account lingers.
-    delete_guest_user(db, user_id)
+    # A guest in no other campaign loses its backing User and contributions too,
+    # so no orphan account lingers; a merged guest keeps its other campaigns.
+    release_guest_membership(db, user_id, guest_code)
     db.commit()
 
 

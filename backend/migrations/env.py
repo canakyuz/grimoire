@@ -34,6 +34,17 @@ if config.config_file_name is not None and config.attributes.get("connection") i
 
 target_metadata = Base.metadata
 
+# FTS5 virtual tables and the shadow tables SQLite keeps for them are created by
+# migrations with raw SQL rather than declared as models, so autogenerate (and
+# ``alembic check``) must not report them as tables to drop.
+_UNMODELLED_TABLE_PREFIXES = ("book_search", "content_search")
+
+
+def _include_object(obj, name, type_, reflected, compare_to) -> bool:
+    if type_ == "table" and reflected and compare_to is None:
+        return not (name or "").startswith(_UNMODELLED_TABLE_PREFIXES)
+    return True
+
 
 def _get_url() -> str:
     """DB URL for standalone CLI runs; falls back to the app's configured path.
@@ -61,6 +72,7 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         render_as_batch=True,
         compare_type=True,
+        include_object=_include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -72,6 +84,7 @@ def _run_with_connection(connection) -> None:
         target_metadata=target_metadata,
         render_as_batch=True,
         compare_type=True,
+        include_object=_include_object,
     )
     with context.begin_transaction():
         context.run_migrations()

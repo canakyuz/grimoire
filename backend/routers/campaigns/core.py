@@ -19,14 +19,16 @@ from ...models import (
     CampaignResourceShare,
     User,
 )
+from ..systems._helpers import load_browsable_system
 from ._helpers import (
     assert_can_manage,
     can_see_resource,
     can_view,
-    delete_guest_user,
+    detach_campaign_characters,
     get_campaign_or_404,
     is_gm_or_admin,
     members_for,
+    release_guest_membership,
     serialize_campaign,
     user_has_campaign_access,
 )
@@ -93,11 +95,11 @@ def list_campaigns(
 
     result = []
     for c in owned:
-        d = serialize_campaign(c, _members(c), db)
+        d = serialize_campaign(c, _members(c), db, current_user)
         d["invitation_status"] = None
         result.append(d)
     for c in member_campaigns:
-        d = serialize_campaign(c, _members(c), db)
+        d = serialize_campaign(c, _members(c), db, current_user)
         d["invitation_status"] = membership_status.get(c.id)
         result.append(d)
     return result
@@ -165,6 +167,10 @@ def create_campaign(
 
     if not user_has_campaign_access(db, current_user.id):
         raise HTTPException(403, "Your campaign access has been disabled")
+    if data.system_id:
+        # Only a system the creator can see: one hidden from them answers like
+        # an id that does not exist.
+        load_browsable_system(db, data.system_id, current_user)
     campaign = Campaign(
         name=data.name.strip(),
         description=data.description,
@@ -210,7 +216,7 @@ def create_campaign(
                     db.add(CampaignResourceShare(resource_id=res.id, user_id=uid))
         db.commit()
 
-    return serialize_campaign(campaign, [], db)
+    return serialize_campaign(campaign, [], db, current_user)
 
 
 def get_campaign(
@@ -257,7 +263,7 @@ def get_campaign(
         if can_see_resource(r, is_owner, current_user.id, share_map)
     ]
 
-    result = serialize_campaign(c, members, db)
+    result = serialize_campaign(c, members, db, current_user)
     result["resources"] = resources
     return result
 
@@ -278,6 +284,8 @@ def update_campaign(
     if data.gm_title is not None:
         c.gm_title = data.gm_title.strip()
     if data.system_id is not None:
+        if data.system_id and data.system_id != c.system_id:
+            load_browsable_system(db, data.system_id, current_user)
         c.system_id = data.system_id or None
         if c.system_id:
             c.system_name = None  # a library system replaces any free-text name
@@ -292,7 +300,7 @@ def update_campaign(
     db.refresh(c)
     # Return the full member list so the client's merge doesn't blank out
     # the roster after an edit.
-    return serialize_campaign(c, members_for(c, current_user, db), db)
+    return serialize_campaign(c, members_for(c, current_user, db), db, current_user)
 
 
 def convert_campaign_to_group(
@@ -324,7 +332,7 @@ def convert_campaign_to_group(
         c.gm_title = data.gm_title.strip()
     db.commit()
     db.refresh(c)
-    return serialize_campaign(c, members_for(c, current_user, db), db)
+    return serialize_campaign(c, members_for(c, current_user, db), db, current_user)
 
 
 def set_campaign_archived(
@@ -353,7 +361,7 @@ def set_campaign_archived(
     c.archived_at = datetime.datetime.utcnow() if data.archived else None
     db.commit()
     db.refresh(c)
-    return serialize_campaign(c, members_for(c, current_user, db), db)
+    return serialize_campaign(c, members_for(c, current_user, db), db, current_user)
 
 
 def delete_campaign(
@@ -370,18 +378,17 @@ def delete_campaign(
         raise HTTPException(
             403, "Campaign is locked: the GM's campaign access has been disabled"
         )
-    # Guest accounts exist only for this campaign, so they go with it, along
-    # with their sessions, exactly as when a single guest is removed.
-    guest_ids = [
-        uid
-        for (uid,) in db.query(CampaignMember.user_id)
-        .filter_by(campaign_id=c.id, is_guest=True)
-        .all()
-    ]
+    # A guest invited only here goes with the campaign, along with its sessions,
+    # exactly as when a single guest is removed; one merged into other campaigns
+    # keeps those.
+    guests = db.query(CampaignMember.user_id, CampaignMember.guest_code).filter_by(
+        campaign_id=c.id, is_guest=True
+    ).all()
+    detach_campaign_characters(db, [c.id])
     db.delete(c)
     db.flush()
-    for uid in guest_ids:
-        delete_guest_user(db, uid)
+    for uid, code in guests:
+        release_guest_membership(db, uid, code)
     db.commit()
 
 

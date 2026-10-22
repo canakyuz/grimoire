@@ -25,6 +25,7 @@ from ...config import (
 )
 from ...models import GenericMap, MapFolder
 from ...models.base import utc_iso
+from ...render.ops import MIN_RENDER_WIDTH
 from ...services import bulk_service, tag_service, variants
 from ...services.browse.media import MediaBrowse, MediaBrowser
 from ...services.content_cache import content_token
@@ -217,7 +218,7 @@ def serve_map_file(
 def serve_map_page(
     map_id: str,
     page_num: int,
-    width: int = Query(1600, le=3000),
+    width: int = Query(1600, ge=MIN_RENDER_WIDTH, le=3000),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

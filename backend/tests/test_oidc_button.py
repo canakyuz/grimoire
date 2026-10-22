@@ -193,9 +193,12 @@ class TestNormalizeIcon:
         with pytest.raises(svc.IconError, match="not a valid image"):
             svc.normalize_icon(b"definitely not an image")
 
-    def test_unsupported_format_rejected(self):
-        with pytest.raises(svc.IconError, match="Unsupported"):
-            svc.normalize_icon(_png((8, 8), mode="RGB", color=(0, 0, 0), fmt="BMP"))
+    @pytest.mark.parametrize("fmt", ["BMP", "TIFF", "PPM"])
+    def test_unsupported_format_rejected(self, fmt):
+        # Formats Pillow could read but an icon upload does not offer are never
+        # handed to their decoders at all.
+        with pytest.raises(svc.IconError, match="not a valid image"):
+            svc.normalize_icon(_png((8, 8), mode="RGB", color=(0, 0, 0), fmt=fmt))
 
     def test_oversized_dimensions_rejected(self):
         with pytest.raises(svc.IconError, match="too large"):

@@ -14009,6 +14009,8 @@ export interface components {
             library_watch_enabled?: boolean | null;
             /** Library Watch Mode */
             library_watch_mode?: string | null;
+            /** Oidc Admin Group */
+            oidc_admin_group?: string | null;
             /** Oidc Authorization Endpoint */
             oidc_authorization_endpoint?: string | null;
             /** Oidc Auto Launch */
@@ -14033,6 +14035,8 @@ export interface components {
             oidc_enabled?: boolean | null;
             /** Oidc End Session Endpoint */
             oidc_end_session_endpoint?: string | null;
+            /** Oidc Gm Group */
+            oidc_gm_group?: string | null;
             /** Oidc Groups Claim */
             oidc_groups_claim?: string | null;
             /** Oidc Issuer Url */
@@ -14043,6 +14047,8 @@ export interface components {
             oidc_match_by?: string | null;
             /** Oidc Permissions Claim */
             oidc_permissions_claim?: string | null;
+            /** Oidc Player Group */
+            oidc_player_group?: string | null;
             /** Oidc Signing Alg */
             oidc_signing_alg?: string | null;
             /** Oidc Token Endpoint */
@@ -14136,6 +14142,10 @@ export interface components {
             /** Library Watch Poll Interval */
             library_watch_poll_interval: number;
             library_watch_state: components["schemas"]["LibraryWatchState"];
+            /** Oidc Admin Group */
+            oidc_admin_group: string;
+            /** Oidc Admin Group Env Locked */
+            oidc_admin_group_env_locked: boolean;
             /** Oidc Authorization Endpoint */
             oidc_authorization_endpoint: string;
             /** Oidc Authorization Endpoint Env Locked */
@@ -14190,6 +14200,10 @@ export interface components {
             oidc_end_session_endpoint: string;
             /** Oidc End Session Endpoint Env Locked */
             oidc_end_session_endpoint_env_locked: boolean;
+            /** Oidc Gm Group */
+            oidc_gm_group: string;
+            /** Oidc Gm Group Env Locked */
+            oidc_gm_group_env_locked: boolean;
             /** Oidc Groups Claim */
             oidc_groups_claim: string;
             /** Oidc Groups Claim Env Locked */
@@ -14210,6 +14224,10 @@ export interface components {
             oidc_permissions_claim: string;
             /** Oidc Permissions Claim Env Locked */
             oidc_permissions_claim_env_locked: boolean;
+            /** Oidc Player Group */
+            oidc_player_group: string;
+            /** Oidc Player Group Env Locked */
+            oidc_player_group_env_locked: boolean;
             /** Oidc Redirect Uri */
             oidc_redirect_uri: string;
             /** Oidc Signing Alg */

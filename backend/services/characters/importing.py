@@ -15,7 +15,6 @@ are applied:
 """
 import base64
 import binascii
-import io
 import re
 from typing import Any, Optional
 
@@ -23,6 +22,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ...models import ContentEntry, Ruleset, RulesetEntry
+from ..upload_images import is_upload_image
 from . import rulesets as rs
 from .schema import coerce_value
 
@@ -224,10 +224,6 @@ def decode_portrait(value: Optional[str]) -> Optional[tuple[bytes, str]]:
     if not data:
         return None
 
-    from PIL import Image
-
-    try:
-        Image.open(io.BytesIO(data)).verify()
-    except Exception:
+    if not is_upload_image(data):
         return None
     return data, extension

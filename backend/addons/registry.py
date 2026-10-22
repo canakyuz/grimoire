@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from ..models import AppSetting
+from ..services import untrusted_yaml
 from .authors import parse_author
 from .constants import (
     ADDONS_DIR,
@@ -170,7 +171,7 @@ def read_manifest_file(path: str, addon_id: str) -> AddonManifest:
     """
     try:
         with open(path, "r", encoding="utf-8") as fh:
-            raw = yaml.safe_load(fh)
+            raw = untrusted_yaml.safe_load(fh)
     except FileNotFoundError as exc:
         raise AddonError(f"add-on '{addon_id}' is not installed") from exc
     except (OSError, yaml.YAMLError) as exc:

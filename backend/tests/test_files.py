@@ -107,6 +107,40 @@ class TestSafeJoin:
             fs.safe_join("books/nope-does-not-exist", must_exist=True)
         assert exc.value.code == "not_found"
 
+    @pytest.mark.parametrize("must_exist", [True, False])
+    def test_a_name_longer_than_any_filesystem_allows_is_invalid(self, must_exist):
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.safe_join("books/" + "é" * 300, must_exist=must_exist)
+        assert exc.value.code == "invalid"
+        assert "255 bytes" in exc.value.message
+        # 255 bytes exactly is a legal name.
+        assert fs.safe_join("books/" + "a" * 255).name == "a" * 255
+
+    def test_a_path_the_filesystem_cannot_look_up_is_invalid(self, monkeypatch):
+        import errno
+        from pathlib import Path
+
+        def too_long(self, *args, **kwargs):
+            raise OSError(errno.ENAMETOOLONG, "File name too long")
+
+        monkeypatch.setattr(Path, "exists", too_long)
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.safe_join("books/a/b/c", must_exist=True)
+        assert exc.value.code == "invalid"
+
+    def test_browse_and_naming_answer_an_over_long_name_with_a_client_error(
+        self, client, admin_headers
+    ):
+        long_path = "books/" + "é" * 300
+        resp = client.get("/api/files/browse", params={"path": long_path}, headers=admin_headers)
+        assert resp.status_code == 400
+        resp = client.put(
+            "/api/naming/folders",
+            json={"path": long_path, "pattern": "{title}"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 404
+
     def test_backslashes_normalised(self, library_tree):
         result = fs.safe_join(f"books\\System-{library_tree}\\core")
         assert result.name == "core"

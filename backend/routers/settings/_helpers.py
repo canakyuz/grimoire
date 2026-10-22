@@ -80,6 +80,10 @@ _DEFAULTS = {
     # Content hash of the uploaded icon in BRANDING_DIR; "" = no icon.
     "oidc_button_icon": "",
     "oidc_groups_claim": "",
+    # The group granting each role when the groups claim is set; exact names.
+    "oidc_admin_group": "admin",
+    "oidc_gm_group": "gm",
+    "oidc_player_group": "player",
     "oidc_permissions_claim": "",
     "oidc_match_by": "none",  # none | email | username
     "oidc_auto_launch": "false",
@@ -91,7 +95,11 @@ _DEFAULTS = {
 }
 
 _VALID_MATCH_BY = ("none", "email", "username")
-_VALID_SIGNING_ALGS = ("RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512", "HS256")
+# ID tokens are verified against the provider's published keys (its JWKS), so
+# only public-key algorithms can ever verify. HS256 was once offered too, but a
+# shared-secret token can't be checked that way and never signed anyone in; a
+# stored HS256 now fails each sign-in with a clear message until it is changed.
+_VALID_SIGNING_ALGS = ("RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512")
 _OIDC_STRING_FIELDS = (
     "oidc_issuer_url",
     "oidc_token_issuer",
@@ -108,6 +116,9 @@ _OIDC_STRING_FIELDS = (
     "oidc_button_border_color",
     "oidc_button_radius",
     "oidc_groups_claim",
+    "oidc_admin_group",
+    "oidc_gm_group",
+    "oidc_player_group",
     "oidc_permissions_claim",
     "oidc_match_by",
 )
@@ -137,6 +148,21 @@ def _warn_invalid_button_env() -> None:
 
 
 _warn_invalid_button_env()
+
+
+def _warn_unsupported_signing_alg_env() -> None:
+    """Log at startup when OIDC_SIGNING_ALG pins an algorithm that can't verify."""
+    alg = OIDC_ENV.get("oidc_signing_alg")
+    if alg is not None and alg not in _VALID_SIGNING_ALGS:
+        logger.warning(
+            "OIDC_SIGNING_ALG=%r is not supported, so single sign-on will fail; "
+            "use one of %s",
+            alg,
+            ", ".join(_VALID_SIGNING_ALGS),
+        )
+
+
+_warn_unsupported_signing_alg_env()
 
 
 def _get_raw(db) -> dict:
@@ -288,6 +314,10 @@ def oidc_effective(raw: dict) -> dict:
         "oidc_button_border_color": normalize_color(s("oidc_button_border_color")) or "",
         "oidc_button_radius": normalize_radius(s("oidc_button_radius")) or "",
         "oidc_groups_claim": s("oidc_groups_claim"),
+        # A blank name means the default group for that role.
+        "oidc_admin_group": s("oidc_admin_group").strip() or "admin",
+        "oidc_gm_group": s("oidc_gm_group").strip() or "gm",
+        "oidc_player_group": s("oidc_player_group").strip() or "player",
         "oidc_permissions_claim": s("oidc_permissions_claim"),
         "oidc_match_by": s("oidc_match_by") or "none",
         "oidc_auto_launch": b("oidc_auto_launch"),

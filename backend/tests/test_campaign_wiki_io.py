@@ -1092,3 +1092,25 @@ class TestZipImportLimits:
         resp = _import(client, gm_headers, c["id"], "wiki.zip", buf.getvalue(), "application/zip")
         assert resp.status_code == 413
 
+
+
+class TestDeeplyNestedJson:
+    """JSON nested past what the parser or the page converters can recurse
+    through is unreadable input, not a server error."""
+
+    def test_a_json_upload_too_deep_to_parse_is_a_400(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import(client, gm_headers, c["id"], "wiki.json", "[" * 30000, "application/json")
+        assert resp.status_code == 400
+
+    def test_a_json_upload_deeper_than_the_limit_is_a_400(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        deep = "[" * 500 + "]" * 500
+        resp = _import(client, gm_headers, c["id"], "wiki.json", deep, "application/json")
+        assert resp.status_code == 400
+
+    def test_a_deep_json_file_in_a_zip_is_skipped(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(client, gm_headers, c["id"], {"bundle.json": "[" * 30000})
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Zip contains no importable wiki files"

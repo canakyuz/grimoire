@@ -104,7 +104,7 @@ Key points:
   stored token, bouncing the user to login.
 - **Auth boundary** - the authenticated API is a single parent router built with
   `APIRouter(prefix="/api", dependencies=[Depends(get_current_user)])` in
-  [`main.py`](../backend/main.py#L203). Every sub-router mounted under it inherits the JWT
+  [`main.py`](../backend/main.py). Every sub-router mounted under it inherits the JWT
   requirement. Truly public endpoints (`/api/auth/status|setup|login`, OIDC, health, the
   calendar feeds) are registered as separate `public_router`s mounted directly on the app.
 - **Handler → DB** - handlers open a session via `SessionLocal()` (or the `get_db`
@@ -250,21 +250,21 @@ initial admin. All three are public routes - see
 Implemented in [`routers/oidc/`](../backend/routers/oidc/) against any standards-compliant
 IdP (Keycloak, Authentik, Authelia, Auth0, Okta, …). The IdP is configured at runtime via
 **Settings → Authentication**; each field can be pinned/locked by an environment variable
-(`OIDC_*`, see the `OIDC_ENV` map in [`config.py`](../backend/config.py#L53)).
+(`OIDC_*`, see the `OIDC_ENV` map in [`config.py`](../backend/config.py)).
 
 ```mermaid
 sequenceDiagram
     participant B as Browser
-    participant G as Grimoire (/api/oidc)
+    participant G as Grimoire (/api/auth/openid)
     participant S as State store
     participant IdP as OIDC Provider
 
-    B->>G: GET /api/oidc/login
+    B->>G: GET /api/auth/openid/login
     G->>S: put(state → {nonce, code_verifier, return_to})
     G-->>B: 302 to IdP authorize (code_challenge S256)
     B->>IdP: authenticate & consent
-    IdP-->>B: 302 to /api/oidc/callback?code&state
-    B->>G: GET /api/oidc/callback
+    IdP-->>B: 302 to /api/auth/openid/callback?code&state
+    B->>G: GET /api/auth/openid/callback
     G->>S: pop(state) → verifier + nonce
     G->>IdP: token exchange (code + code_verifier)
     IdP-->>G: id_token + access_token
@@ -282,10 +282,12 @@ Notes:
   stashes the per-flow secrets in the state store keyed by `state`, and redirects to the
   IdP's authorization endpoint (endpoints are read from config or auto-discovered from the
   issuer's `.well-known/openid-configuration`).
-- **State store** - `_StateStore` in
-  [`routers/oidc/_helpers.py`](../backend/routers/oidc/_helpers.py) is an in-process dict
-  with a 10-minute TTL. This is sufficient for a single replica; a multi-replica deployment
-  would need a shared store (tracked for the Valkey-backed state/JWKS work).
+- **State store** - `_state_store` in
+  [`routers/oidc/_state.py`](../backend/routers/oidc/_state.py) holds each flow for 10
+  minutes. With `VALKEY_URL` set it is shared through Valkey (`ValkeyStateStore`, single-use
+  via `GETDEL`), so a callback can land on a different worker or replica than the login that
+  started it; without Valkey it is an in-process dict (`MemoryStateStore`), enough for one
+  worker. The IdP's JWKS is cached the same way.
 - **Callback** - `oidc_callback` checks and spends `state` before anything else (an IdP
   error included), exchanges the code for tokens, validates the `id_token` against the IdP's
   JWKS (checking issuer/audience/nonce), optionally merges `/userinfo` claims (some IdPs only
@@ -439,3 +441,12 @@ alembic downgrade -1                                        # verify it reverses
 `sqlalchemy.url` isn't in `alembic.ini` - it resolves from the app config (or an
 `-x url=sqlite:///...` override). Keep the schema-of-record in
 [`docs/data-model.md`](data-model.md) in sync when you add a revision.
+
+`alembic check` must report nothing against a freshly migrated database: the migrations and
+the models describe the same schema. The FTS5 tables are created with raw SQL rather than
+declared as models, so `env.py` leaves them out of the comparison. The backend tests run the
+same check (`TestSchemaAlignment` in `backend/tests/test_db_migrations.py`), so a model change
+without its migration, or the reverse, fails CI. Rebuilding a table that other tables reference
+is risky in batch mode: migrations run with `PRAGMA foreign_keys=ON`, which can't be turned off
+inside the migration's transaction, so dropping the old copy would fire the children's
+`ON DELETE` actions - see how 0055 sets `ruleset_entries` aside while it rebuilds `rulesets`.

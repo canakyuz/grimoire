@@ -148,6 +148,40 @@ class TestDeletingAUser:
             db.close()
 
 
+    def test_characters_played_in_their_campaigns_are_unlinked(
+        self, client, admin_headers, player_id
+    ):
+        from backend.models import Campaign
+
+        gm = _player(client, admin_headers)
+        db = SessionLocal()
+        try:
+            campaign = Campaign(name="Theirs", owner_id=gm, is_gm_campaign=True)
+            db.add(campaign)
+            db.flush()
+            other = Character(
+                user_id=player_id, schema_ref="lifecycle-sheet", name="Guest star",
+                campaign_id=campaign.id, gm_can_edit=True,
+            )
+            db.add(other)
+            db.commit()
+            other_id = other.id
+        finally:
+            db.close()
+
+        assert client.delete(f"/api/users/{gm}", headers=admin_headers).status_code == 204
+
+        db = SessionLocal()
+        try:
+            survivor = db.query(Character).filter_by(id=other_id).one()
+            assert survivor.campaign_id is None
+            assert survivor.gm_can_edit is False
+            db.delete(survivor)
+            db.commit()
+        finally:
+            db.close()
+
+
 class TestMergingAGuest:
     def _guest_pair(self, client, admin_headers, gm_headers):
         client.patch(

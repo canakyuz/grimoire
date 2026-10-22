@@ -5,22 +5,23 @@ import logging
 import secrets
 import time
 import warnings
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import urlsplit
 
 import httpx
-from sqlalchemy import func
+from sqlalchemy import or_
 
 with warnings.catch_warnings():
     # Authlib 1.x exposes JOSE under authlib.jose. They've started warning that
     # it'll move to a separate `joserfc` package before Authlib 2.0 — until then
     # the current path is the supported import. Silence the deprecation noise.
     warnings.simplefilter("ignore")
-    from authlib.jose import jwt as joseju  # noqa: E402
+    from authlib.jose import JsonWebToken  # noqa: E402
     from authlib.jose.errors import JoseError  # noqa: E402
 
 from ...models import User
-from ...usernames import username_taken
+from ...usernames import match_username, username_taken
+from ..settings._helpers import _VALID_SIGNING_ALGS
 from ._state import _jwks_cache, _state_store  # noqa: F401  (re-exported)
 
 
@@ -128,6 +129,21 @@ def _get_jwks(jwks_uri: str, force: bool = False) -> dict:
     return keys
 
 
+# What decoding a token can raise. Authlib reports most problems as JoseError,
+# but a key that doesn't fit the token's algorithm (an HS256 token checked
+# against RSA keys, say) surfaces as ValueError, TypeError or KeyError.
+_DECODE_ERRORS = (JoseError, ValueError, TypeError, KeyError)
+
+
+def _decode(id_token: str, keys: dict, alg: str, claims_options: dict) -> Any:
+    """Verify ``id_token`` against ``keys``, accepting only the ``alg`` algorithm.
+
+    Pinned rather than taken from the token's header, so a token in any other
+    algorithm - ``none`` included - is refused before its signature is looked at.
+    """
+    return JsonWebToken([alg]).decode(id_token, keys, claims_options=claims_options)
+
+
 def _validate_id_token(
     id_token: str,
     *,
@@ -137,34 +153,30 @@ def _validate_id_token(
     expected_nonce: str,
     allowed_alg: str,
 ) -> dict:
+    if allowed_alg not in _VALID_SIGNING_ALGS:
+        # HS256 used to be offered, but a shared-secret token can't be checked
+        # against the provider's published keys, so it could never sign in.
+        raise _OIDCError(
+            f"signing algorithm {allowed_alg or '(none)'} is not supported - "
+            "choose RS256 or another listed algorithm in Settings"
+        )
     if not jwks_uri:
         raise _OIDCError("jwks uri is not configured")
 
+    claims_options = {
+        "iss": {"essential": True, "value": issuer},
+        "aud": {"essential": True, "value": client_id},
+        "exp": {"essential": True},
+    }
     keys = _get_jwks(jwks_uri)
     try:
-        claims = joseju.decode(
-            id_token,
-            keys,
-            claims_options={
-                "iss": {"essential": True, "value": issuer},
-                "aud": {"essential": True, "value": client_id},
-                "exp": {"essential": True},
-            },
-        )
-    except JoseError:
+        claims = _decode(id_token, keys, allowed_alg, claims_options)
+    except _DECODE_ERRORS:
         # Try once with a forced JWKS refresh — handles key rotation.
         keys = _get_jwks(jwks_uri, force=True)
         try:
-            claims = joseju.decode(
-                id_token,
-                keys,
-                claims_options={
-                    "iss": {"essential": True, "value": issuer},
-                    "aud": {"essential": True, "value": client_id},
-                    "exp": {"essential": True},
-                },
-            )
-        except JoseError as e:
+            claims = _decode(id_token, keys, allowed_alg, claims_options)
+        except _DECODE_ERRORS as e:
             raise _OIDCError(f"id_token signature invalid: {e}") from e
 
     # validate() raises on expired/invalid claims
@@ -173,7 +185,7 @@ def _validate_id_token(
     except JoseError as e:
         raise _OIDCError(f"id_token claims invalid: {e}") from e
 
-    # Algorithm check (defense-in-depth — joseju enforces signing already)
+    # Algorithm check (defense-in-depth - _decode already accepts only allowed_alg)
     header = claims.header or {}
     alg = header.get("alg")
     if allowed_alg and alg and alg != allowed_alg:
@@ -217,10 +229,42 @@ def _fetch_userinfo(userinfo_url: Optional[str], access_token: Optional[str]) ->
 
 
 _ROLE_PRIORITY = {"admin": 3, "gm": 2, "player": 1}
+# The group each role comes from unless an admin names another one.
+DEFAULT_ROLE_GROUPS = {"admin": "admin", "gm": "gm", "player": "player"}
 
 
-def _role_from_groups(claims: dict, groups_claim: str) -> Optional[str]:
-    """Return the highest-priority role found in the configured groups claim, or None."""
+def role_group_names(eff: dict) -> dict[str, str]:
+    """The group name each role is granted by, from the effective OIDC settings."""
+    return {
+        role: (eff.get(f"oidc_{role}_group") or "").strip() or default
+        for role, default in DEFAULT_ROLE_GROUPS.items()
+    }
+
+
+def _group_key(name: str) -> str:
+    """How a group name is compared: case-insensitively, and with Keycloak's
+    leading slash dropped from a top-level group's full path (``/admin``).
+
+    Only one leading slash, and only when nothing else in the name is a path
+    separator - ``/team/admin`` is a subgroup of ``team``, not ``admin``.
+    """
+    key = name.strip().casefold()
+    if key.startswith("/") and "/" not in key[1:]:
+        key = key[1:]
+    return key
+
+
+def _role_from_groups(
+    claims: dict, groups_claim: str, group_names: Optional[dict[str, str]] = None
+) -> Optional[str]:
+    """Return the highest-priority role found in the configured groups claim, or None.
+
+    A group grants a role only when its name is exactly the one configured for
+    that role (``group_names``, default ``admin``/``gm``/``player``), ignoring
+    case and Keycloak's leading ``/`` on a top-level group. Names that merely
+    end in a role name (``jellyfin-admin``, ``/media/admin``) belong to other
+    applications and grant nothing.
+    """
     if not groups_claim:
         return None
     val = claims.get(groups_claim)
@@ -234,16 +278,17 @@ def _role_from_groups(claims: dict, groups_claim: str) -> Optional[str]:
     else:
         return None
 
+    names = role_group_names(
+        {f"oidc_{role}_group": name for role, name in (group_names or {}).items()}
+    )
+    wanted = {role: _group_key(name) for role, name in names.items()}
+    present = {_group_key(g) for g in groups}
+
     best: Optional[str] = None
     best_rank = 0
-    for g in groups:
-        gl = g.lower()
-        # Match directly, or strip common prefix (e.g. "/admin", "grimoire-admin")
-        for role in ("admin", "gm", "player"):
-            if gl == role or gl.endswith(f"/{role}") or gl.endswith(f"-{role}"):
-                rank = _ROLE_PRIORITY[role]
-                if rank > best_rank:
-                    best, best_rank = role, rank
+    for role, key in wanted.items():
+        if key in present and _ROLE_PRIORITY[role] > best_rank:
+            best, best_rank = role, _ROLE_PRIORITY[role]
     return best
 
 
@@ -306,12 +351,19 @@ def _resolve_user(db, claims: dict, eff: dict) -> User:
         if eff["oidc_match_by"] == "email" and email and _email_verified(claims):
             user = unlinked.filter(User.email == email).first()
         elif eff["oidc_match_by"] == "username" and login_name:
-            user = unlinked.filter(func.lower(User.username) == login_name.lower()).first()
+            # Most providers let people pick their own login name, so a name
+            # alone never links an admin account: whoever registered "admin"
+            # at the provider would sign in as Grimoire's admin.
+            user = match_username(
+                unlinked.filter(or_(User.role.is_(None), User.role != "admin")), login_name
+            )
 
     # 3. Group-based role (returns None if no groups claim configured)
-    role_from_groups = _role_from_groups(claims, eff["oidc_groups_claim"])
+    role_from_groups = _role_from_groups(
+        claims, eff["oidc_groups_claim"], role_group_names(eff)
+    )
     if eff["oidc_groups_claim"] and role_from_groups is None:
-        # Groups claim is configured but the user has none of admin/gm/player.
+        # Groups claim is configured but the user is in none of the role groups.
         raise _OIDCError("no matching group in OIDC claims")
 
     # 4. Permissions claim (returns None when unset)

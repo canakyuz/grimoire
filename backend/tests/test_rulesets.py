@@ -767,6 +767,25 @@ class TestPastingARuleset:
         assert resp.status_code == 400
         assert "JSON or YAML" in resp.json()["detail"]
 
+    def test_yaml_aliases_are_refused(self, client, gm_headers, schemas, gm_campaign):
+        ruleset = _create(client, gm_headers, campaign_id=gm_campaign).json()
+        resp = client.post(
+            f"/api/rulesets/{ruleset['id']}/import",
+            json={"text": "a: &a [1, 2]\nentries:\n  spell: [*a, *a]\n"},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 400
+        assert "aliases" in resp.json()["detail"]
+
+    def test_deeply_nested_json_is_a_400(self, client, gm_headers, schemas, gm_campaign):
+        ruleset = _create(client, gm_headers, campaign_id=gm_campaign).json()
+        resp = client.post(
+            f"/api/rulesets/{ruleset['id']}/import",
+            json={"text": "[" * 30000},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 400
+
     def test_text_without_entries_is_refused(self, client, gm_headers, schemas, gm_campaign):
         ruleset = _create(client, gm_headers, campaign_id=gm_campaign).json()
         resp = client.post(

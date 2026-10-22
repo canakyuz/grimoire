@@ -141,7 +141,7 @@ def portable(exc: Exception) -> Exception:
     are. Anything else, MuPDF's exception types included, is flattened to a
     RenderError with the original's name and message.
     """
-    if isinstance(exc, (ops.PageOutOfRange, ops.TileOutOfRange)):
+    if isinstance(exc, (ops.PageOutOfRange, ops.TileOutOfRange, ops.WidthOutOfRange)):
         return exc
     # An export request the document can't satisfy (a 400). Looked up rather
     # than imported, so a worker that never exports never loads page export.

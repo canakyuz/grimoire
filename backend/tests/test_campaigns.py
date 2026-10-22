@@ -229,12 +229,112 @@ class TestUpdateCampaign:
         assert resp.status_code == 403
 
 
+class TestCampaignSystemVisibility:
+    """A campaign names its game system only to people who can see that system."""
+
+    def test_cannot_link_a_system_hidden_from_you(self, client, player_headers, gm_headers):
+        hidden = make_game_system(access_level="admin")
+        for headers in (player_headers, gm_headers):
+            resp = client.post(
+                "/api/campaigns",
+                json={"name": f"Hidden {uid()}", "system_id": hidden.id},
+                headers=headers,
+            )
+            assert resp.status_code == 404, resp.text
+
+    def test_cannot_switch_to_a_system_hidden_from_you(self, client, gm_headers):
+        hidden = make_game_system(access_level="admin")
+        c = client.post(
+            "/api/campaigns", json={"name": f"Switch {uid()}"}, headers=gm_headers
+        ).json()
+        resp = client.patch(
+            f"/api/campaigns/{c['id']}", json={"system_id": hidden.id}, headers=gm_headers
+        )
+        assert resp.status_code == 404, resp.text
+
+    def test_players_do_not_see_a_gm_only_system(
+        self, client, gm_headers, player_headers, player_id
+    ):
+        system = make_game_system(access_level="gm")
+        c = client.post(
+            "/api/campaigns",
+            json={"name": f"GM system {uid()}", "is_gm_campaign": True, "system_id": system.id},
+            headers=gm_headers,
+        )
+        assert c.status_code == 201, c.text
+        c = c.json()
+        assert c["system_display_name"] == system.name
+        client.post(
+            f"/api/campaigns/{c['id']}/invite", json={"user_id": player_id}, headers=gm_headers
+        )
+        client.patch(
+            f"/api/campaigns/{c['id']}/members/{player_id}",
+            json={"status": "accepted"},
+            headers=player_headers,
+        )
+
+        seen = client.get(f"/api/campaigns/{c['id']}", headers=player_headers).json()
+        assert seen["system_id"] is None
+        assert seen["system_display_name"] == ""
+        listed = next(
+            x
+            for x in client.get("/api/campaigns", headers=player_headers).json()
+            if x["id"] == c["id"]
+        )
+        assert listed["system_id"] is None
+        assert system.name not in str(listed)
+
+        gm_view = client.get(f"/api/campaigns/{c['id']}", headers=gm_headers).json()
+        assert gm_view["system_id"] == system.id
+        assert gm_view["system_display_name"] == system.name
+
+    def test_resaving_an_unchanged_system_is_allowed(self, client, gm_headers):
+        system = make_game_system(access_level="gm")
+        c = client.post(
+            "/api/campaigns",
+            json={"name": f"Resave {uid()}", "system_id": system.id},
+            headers=gm_headers,
+        ).json()
+        resp = client.patch(
+            f"/api/campaigns/{c['id']}",
+            json={"system_id": system.id, "description": "Edited"},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["system_display_name"] == system.name
+
+
 class TestDeleteCampaign:
     def test_owner_can_delete(self, client, gm_headers, gm_id):
         c = make_campaign(owner_id=gm_id, is_gm_campaign=True)
         resp = client.delete(f"/api/campaigns/{c.id}", headers=gm_headers)
         assert resp.status_code == 204
         assert client.get(f"/api/campaigns/{c.id}", headers=gm_headers).status_code == 404
+
+    def test_characters_in_it_are_unlinked(self, client, gm_headers, gm_id, player_headers, player_id):
+        from backend.config import SessionLocal
+        from backend.models import Character
+
+        c = make_campaign(owner_id=gm_id, is_gm_campaign=True)
+        db = SessionLocal()
+        try:
+            row = Character(
+                user_id=player_id, schema_ref="sheet", name="Left behind",
+                campaign_id=c.id, gm_can_edit=True,
+            )
+            db.add(row)
+            db.commit()
+            character_id = row.id
+        finally:
+            db.close()
+
+        assert client.delete(f"/api/campaigns/{c.id}", headers=gm_headers).status_code == 204
+
+        resp = client.get(f"/api/characters/{character_id}", headers=player_headers)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["campaign_id"] is None
+        assert resp.json()["campaign_name"] is None
+        assert resp.json()["gm_can_edit"] is False
 
     def test_nonowner_cannot_delete(self, client, player_headers, gm_campaign):
         assert (

@@ -613,6 +613,10 @@ OIDC_ENV: dict = {
     "oidc_button_radius": os.environ.get("OIDC_BUTTON_RADIUS"),
     "oidc_button_icon": os.environ.get("OIDC_BUTTON_ICON"),
     "oidc_groups_claim": os.environ.get("OIDC_GROUPS_CLAIM"),
+    # The group that grants each role, matched by exact name (case-insensitive).
+    "oidc_admin_group": os.environ.get("OIDC_ADMIN_GROUP"),
+    "oidc_gm_group": os.environ.get("OIDC_GM_GROUP"),
+    "oidc_player_group": os.environ.get("OIDC_PLAYER_GROUP"),
     "oidc_permissions_claim": os.environ.get("OIDC_PERMISSIONS_CLAIM"),
     "oidc_match_by": os.environ.get("OIDC_MATCH_BY"),
     "oidc_auto_launch": _bool_env("OIDC_AUTO_LAUNCH"),

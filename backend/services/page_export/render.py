@@ -14,7 +14,7 @@ from dataclasses import dataclass
 import fitz  # type: ignore[import-untyped]
 from PIL import Image, ImageDraw  # type: ignore[import-untyped]
 
-from .spec import MAX_OUTPUT_PIXELS, ExportError, Region
+from .spec import MAX_OUTPUT_PIXELS, MAX_TOTAL_PIXELS, ExportError, Region
 
 # The ellipse mask is drawn this many times larger and scaled down, which is
 # what gives a circular token a smooth edge instead of a stair-stepped one.
@@ -66,15 +66,41 @@ def output_size(composite: Composite, region: Region, dpi: int) -> tuple[int, in
     )
 
 
-def render_region(doc: fitz.Document, region: Region, dpi: int) -> Image.Image:
-    """Render one region to an image: RGB for a rectangle, RGBA for an ellipse."""
-    composite = composite_for(doc, region.pages)
-    out_w, out_h = output_size(composite, region, dpi)
+def _check_one(out_w: int, out_h: int, dpi: int) -> None:
     if out_w * out_h > MAX_OUTPUT_PIXELS:
         raise ExportError(
             f"That is {out_w} x {out_h} pixels at {dpi} dpi, which is too large - "
             "choose a lower resolution or a smaller area"
         )
+
+
+def check_budget(doc: fitz.Document, regions: list[Region], dpi: int, fewer: str) -> None:
+    """Refuse an export whose images are too large, before any is rendered.
+
+    Each image is held to MAX_OUTPUT_PIXELS and all of them together to
+    MAX_TOTAL_PIXELS. Sizing a region only reads its pages' rectangles, so an
+    export that is going to be refused costs nothing to refuse, rather than
+    rendering until the image that crosses a limit. ``fewer`` names what to
+    choose fewer of in the message ("pages", "cut-outs").
+    """
+    total = 0
+    for region in regions:
+        out_w, out_h = output_size(composite_for(doc, region.pages), region, dpi)
+        _check_one(out_w, out_h, dpi)
+        total += out_w * out_h
+    if total > MAX_TOTAL_PIXELS:
+        raise ExportError(
+            f"That export is {total // 1_000_000} megapixels at {dpi} dpi - one export is "
+            f"limited to {MAX_TOTAL_PIXELS // 1_000_000}. Choose a lower resolution or "
+            f"fewer {fewer}, or save as PDF"
+        )
+
+
+def render_region(doc: fitz.Document, region: Region, dpi: int) -> Image.Image:
+    """Render one region to an image: RGB for a rectangle, RGBA for an ellipse."""
+    composite = composite_for(doc, region.pages)
+    out_w, out_h = output_size(composite, region, dpi)
+    _check_one(out_w, out_h, dpi)
 
     k = dpi / 72
     rx0 = region.x * composite.width

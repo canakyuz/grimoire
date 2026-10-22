@@ -69,7 +69,8 @@ Three boxes, because a custom sheet is three things:
 
 **YAML is usually the better choice** for a sheet you are writing by hand: no
 quoting every key, no trailing-comma errors, and you can leave comments. JSON
-works too - it is read first, and YAML only if that fails.
+works too - it is read first, and YAML only if that fails. YAML anchors and
+aliases (`&name` / `*name`) are not supported - write the repeated part out.
 
 The layout and stylesheet are separate boxes rather than fields inside the
 document because HTML embedded in JSON has to be escaped, which turns a readable

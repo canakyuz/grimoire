@@ -13,7 +13,7 @@ from dataclasses import dataclass
 import fitz  # type: ignore[import-untyped]
 
 from .pdf import pages_pdf, region_pdf
-from .render import encode, render_region
+from .render import check_budget, encode, render_region
 from .spec import (
     EXTENSIONS,
     IMAGE_FORMATS,
@@ -94,9 +94,10 @@ def export_pages(
             "Save as PDF, or export a shorter range"
         )
     groups = group_spreads(pages, spread_offset) if join_spreads else [(p,) for p in pages]
+    regions = [Region(pages=group, shape="rect", x=0.0, y=0.0, w=1.0, h=1.0) for group in groups]
+    check_budget(doc, regions, dpi, "pages")
     files: list[ExportFile] = []
-    for group in groups:
-        region = Region(pages=group, shape="rect", x=0.0, y=0.0, w=1.0, h=1.0)
+    for group, region in zip(groups, regions):
         files.append(
             ExportFile(
                 name=f"{stem} ({page_label(group)}).{EXTENSIONS[fmt]}",
@@ -125,6 +126,8 @@ def export_regions(
     checked = [validate_region(r, page_count) for r in regions]
     if fmt == "pdf" and any(r.shape == "ellipse" for r in checked):
         raise ExportError("Round cut-outs need a transparent background - save them as PNG or WebP")
+    if fmt != "pdf":
+        check_budget(doc, checked, dpi, "cut-outs")
 
     stem = safe_stem(title)
     per_page: dict[tuple[int, ...], int] = {}

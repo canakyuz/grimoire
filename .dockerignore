@@ -11,6 +11,13 @@ data/
 **/*.db-*
 **/secret_key
 **/.env
+# .env.local, .env.production and the like: Vite reads them from frontend/
+# during the build and bakes any VITE_ value into the bundle. None is tracked;
+# the build needs none.
+**/.env.*
+# TLS certificates' private keys and other key files.
+**/*.pem
+**/*.key
 **/users.json
 **/users.json.*
 **/*.md

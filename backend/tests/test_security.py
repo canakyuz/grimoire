@@ -1,7 +1,7 @@
 """Tests for auth rate limiting and security response headers."""
 import pytest
 
-from backend.security import client_ip, limiter
+from backend.security import client_ip, limiter, rate_limit_key
 
 
 @pytest.fixture
@@ -94,6 +94,47 @@ class TestClientIp:
     def test_client_on_the_private_network(self):
         assert client_ip(self._req("172.18.0.2", "192.168.1.50")) == "192.168.1.50"
 
+    def test_tailscale_ipv6_peer_is_trusted_by_default(self):
+        """Documents the default: fc00::/7 covers Tailscale's IPv6 range, so a
+        tailnet client connecting directly over IPv6 has its own header read."""
+        assert client_ip(self._req("fd7a:115c:a1e0::5", "203.0.113.7")) == "203.0.113.7"
+        assert client_ip(self._req("fd7a:115c:a1e0::5")) == "fd7a:115c:a1e0::5"
+
+    def test_tailscale_ipv4_peer_is_not(self):
+        """Tailscale's IPv4 range (100.64.0.0/10) is not in the default list."""
+        assert client_ip(self._req("100.101.102.103", "203.0.113.7")) == "100.101.102.103"
+
+
+class TestRateLimitKey:
+    @staticmethod
+    def _req(peer):
+        class _Req:
+            headers = {}
+            client = type("C", (), {"host": peer})()
+
+        return _Req()
+
+    def test_ipv4_is_its_own_bucket(self):
+        assert rate_limit_key(self._req("198.51.100.5")) == "198.51.100.5"
+
+    def test_global_ipv6_is_grouped_by_64(self):
+        a = rate_limit_key(self._req("2a01:4f8:c0c:1234::1"))
+        b = rate_limit_key(self._req("2a01:4f8:c0c:1234:abcd:ef01:2345:6789"))
+        assert a == b == "2a01:4f8:c0c:1234::/64"
+        assert rate_limit_key(self._req("2a01:4f8:c0c:1235::1")) != a
+
+    def test_private_ipv6_keeps_its_own_bucket(self):
+        """Every device on one LAN segment shares a /64, so ULAs aren't grouped."""
+        assert rate_limit_key(self._req("fd7a:115c:a1e0::5")) == "fd7a:115c:a1e0::5"
+        assert rate_limit_key(self._req("fe80::1")) == "fe80::1"
+        assert rate_limit_key(self._req("::1")) == "::1"
+
+    def test_ipv4_mapped_ipv6_is_keyed_as_ipv4(self):
+        assert rate_limit_key(self._req("::ffff:198.51.100.5")) == "198.51.100.5"
+
+    def test_a_non_address_peer_is_kept(self):
+        assert rate_limit_key(self._req("testclient")) == "testclient"
+
 
 class TestRateLimiting:
     def test_login_rate_limited(self, client, admin_setup, rate_limited):
@@ -125,6 +166,26 @@ class TestRateLimiting:
             "/api/auth/login",
             json={"username": "admin", "password": "wrongpassword"},
             headers={"X-Forwarded-For": "203.0.113.21"},
+        )
+        assert resp.status_code != 429
+
+    def test_one_ipv6_64_shares_a_bucket(self, client, admin_setup, rate_limited):
+        """Rotating addresses inside one /64 doesn't buy fresh attempts."""
+        for i in range(30):
+            resp = client.post(
+                "/api/auth/login",
+                json={"username": "admin", "password": "wrongpassword"},
+                headers={"X-Forwarded-For": f"2a01:4f8:c0c:77::{i + 1:x}"},
+            )
+            if resp.status_code == 429:
+                break
+        # The per-IP limit (10/minute), well before the per-account one (20/hour)
+        # that would refuse a fresh address per attempt anyway.
+        assert resp.status_code == 429 and i <= 10
+        resp = client.post(
+            "/api/auth/login",
+            json={"username": "admin", "password": "wrongpassword"},
+            headers={"X-Forwarded-For": "2a01:4f8:c0c:78::1"},
         )
         assert resp.status_code != 429
 

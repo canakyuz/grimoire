@@ -19,6 +19,12 @@ from PIL import Image
 # A zoom tile is at most this many pixels square (issue #574).
 TILE_SIZE = 1024
 
+# The narrowest and widest a page may be rendered. MuPDF renders a negative
+# zoom at its absolute size, and every width is cached separately, so a width
+# outside this range is refused here rather than trusted to each caller's bounds.
+MIN_RENDER_WIDTH = 16
+MAX_RENDER_WIDTH = 16384
+
 
 class PageOutOfRange(Exception):
     """The requested page is not in the document."""
@@ -40,6 +46,22 @@ class TileOutOfRange(Exception):
 
     def __str__(self) -> str:
         return f"This page has {self.cols}x{self.rows} tiles at width {self.width}"
+
+
+class WidthOutOfRange(Exception):
+    """The requested render width is outside MIN_RENDER_WIDTH..MAX_RENDER_WIDTH."""
+
+    def __init__(self, width: int) -> None:
+        super().__init__(width)
+        self.width = width
+
+    def __str__(self) -> str:
+        return f"Width must be between {MIN_RENDER_WIDTH} and {MAX_RENDER_WIDTH}"
+
+
+def _check_width(width: int) -> None:
+    if not MIN_RENDER_WIDTH <= width <= MAX_RENDER_WIDTH:
+        raise WidthOutOfRange(width)
 
 
 class RenderError(Exception):
@@ -80,6 +102,7 @@ def _page(doc: fitz.Document, page_num: int) -> fitz.Page:
 
 def rasterize_page(doc: fitz.Document, page_num: int, width: int) -> Image.Image:
     """Page ``page_num`` (1-based) as an RGB image ``width`` pixels wide."""
+    _check_width(width)
     page = _page(doc, page_num)
     zoom = width / page.rect.width
     pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
@@ -93,6 +116,7 @@ def rasterize_tile(
     doc: fitz.Document, page_num: int, width: int, col: int, row: int
 ) -> Image.Image:
     """Tile ``col``/``row`` of the page rendered ``width`` pixels wide."""
+    _check_width(width)
     page = _page(doc, page_num)
     cols, rows = tile_grid(page.rect, width)
     if col >= cols or row >= rows:

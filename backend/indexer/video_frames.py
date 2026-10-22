@@ -8,7 +8,7 @@ Debian ``ffmpeg`` pulls 430 MB across 202 packages, and PyAV lands at 115 MB.
 
 So the image builds its own decode-only ffmpeg instead (see the ``ffmpeg-builder``
 stage in the Dockerfile): ``--disable-everything`` plus the handful of decoders
-and two demuxers a battlemap can plausibly use, which strips to ~4.7 MB and links
+and two demuxers a battlemap can plausibly use, which strips to ~5 MB and links
 nothing beyond libc/libm/libz. This module is the Python side of that bargain —
 it shells out to that binary for exactly one frame and hands the bytes to Pillow,
 which already does every other thumbnail in the app.

@@ -242,6 +242,48 @@ class TestBundle:
         with pytest.raises(pe.ExportError, match="Save as PDF"):
             pe.export_pages(_doc(), "Book", [1, 2, 3], "png", 72, False, 0)
 
+    def test_a_page_export_over_the_total_is_refused_before_rendering(self, monkeypatch):
+        rendered = []
+        monkeypatch.setattr(
+            "backend.services.page_export.bundle.render_region",
+            lambda *a: rendered.append(a),
+        )
+        # 100 letter pages at 600 dpi: 34 MP each, 3.4 GP in all.
+        doc = _doc(pages=100, width=612, height=792)
+        with pytest.raises(pe.ExportError, match="megapixels at 600 dpi.*save as PDF"):
+            pe.export_pages(doc, "Book", list(range(1, 101)), "png", 600, False, 0)
+        assert rendered == []
+
+    def test_one_oversized_page_is_refused_before_any_renders(self, monkeypatch):
+        rendered = []
+        monkeypatch.setattr(
+            "backend.services.page_export.bundle.render_region",
+            lambda *a: rendered.append(a),
+        )
+        monkeypatch.setattr("backend.services.page_export.render.MAX_OUTPUT_PIXELS", 100)
+        with pytest.raises(pe.ExportError, match="too large"):
+            pe.export_pages(_doc(), "Book", [1, 2], "png", 72, False, 0)
+        assert rendered == []
+
+    def test_a_chapter_at_print_resolution_is_within_the_total(self, monkeypatch):
+        monkeypatch.setattr(
+            "backend.services.page_export.bundle.render_region",
+            lambda *a: Image.new("RGB", (1, 1)),
+        )
+        letter = _doc(pages=100, width=612, height=792)
+        assert len(pe.export_pages(letter, "B", list(range(1, 29)), "png", 300, False, 0)) == 28
+        assert len(pe.export_pages(letter, "B", list(range(1, 101)), "jpeg", 150, False, 0)) == 100
+
+    def test_cut_outs_share_the_total(self, monkeypatch):
+        monkeypatch.setattr("backend.services.page_export.render.MAX_TOTAL_PIXELS", 100_000)
+        region = pe.Region((1,), "rect", 0, 0, 1, 1)
+        # 200 x 300 points at 72 dpi is 60,000 pixels: one fits, two do not.
+        assert len(pe.export_regions(_doc(), "B", [region], "png", 72)) == 1
+        with pytest.raises(pe.ExportError, match="fewer cut-outs"):
+            pe.export_regions(_doc(), "B", [region, region], "png", 72)
+        # A PDF cut-out copies the page rather than drawing it.
+        assert len(pe.export_regions(_doc(), "B", [region, region], "pdf", 72)) == 2
+
     def test_regions_named_by_user_or_page(self):
         regions = [
             pe.Region((2,), "rect", 0, 0, 0.5, 0.5),

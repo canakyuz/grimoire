@@ -2,15 +2,18 @@
 
 import datetime
 import re
+import secrets
+import string
 from typing import Optional, List
 
 from fastapi import HTTPException
 from sqlalchemy import text
 
-from ...models import Campaign, CampaignMember, Character, Ruleset, User
+from ...models import Campaign, CampaignMember, Character, GameSystem, Ruleset, User
 from ...services.characters.images import remove_files_after_commit
 from ...auth import CurrentUser
 from ...sessions import delete_user_sessions
+from ..systems._helpers import system_browsable
 
 
 # Tables holding rows that belong to a single user and die with them. Kept as a
@@ -36,11 +39,12 @@ _USER_SCOPED_TABLES = (
 )
 
 # Rows deleted with their user but never *moved* to another one. Access grants
-# (issue #258) authorise one specific person to reach restricted content, so
-# folding them into a merge target would silently widen that person's access —
-# the opposite of what a grant is for. Guests cannot hold grants anyway, and
-# merges only ever source from a guest, so this is belt and braces rather than a
-# live path; it is spelled out so a future non-guest merge cannot get it wrong.
+# (issue #258) authorise one specific person to reach restricted content, and
+# API keys and share links are credentials issued to that person, so folding
+# them into a merge target would silently widen the target's access — the
+# opposite of what they are for. A merge deletes the source's rows instead
+# (``reassign_user_data``). Guests normally hold none of these, but an account
+# still flagged a guest may, so the merge must not rely on that.
 _USER_DELETE_ONLY_TABLES = ("user_access_grants", "api_keys", "share_links")
 
 # Nullable FKs that are *attribution*, not ownership: the content lives inside
@@ -89,6 +93,9 @@ def reassign_user_data(db, source_id: str, target_id: str) -> int:
     that campaign, already has that share) are dropped rather than moved — the
     target's own row wins.
 
+    Rows in ``_USER_DELETE_ONLY_TABLES`` (grants and credentials) are deleted
+    rather than moved, so the source account can then be deleted.
+
     Returns the number of campaign memberships moved. Does not commit.
     """
     for table, scope in _USER_SCOPED_UNIQUE:
@@ -134,7 +141,27 @@ def reassign_user_data(db, source_id: str, target_id: str) -> int:
         text("UPDATE rulesets SET owner_id = :tgt WHERE owner_id = :src"),
         {"src": source_id, "tgt": target_id},
     )
+    for table in _USER_DELETE_ONLY_TABLES:
+        db.execute(text(f"DELETE FROM {table} WHERE user_id = :src"), {"src": source_id})
     return int(moved)
+
+
+def detach_campaign_characters(db, campaign_ids: List[str]) -> None:
+    """Unlink the characters played in campaigns that are about to be deleted.
+
+    A character outlives the game it was played in, so it goes back to being
+    its player's own rather than pointing at a campaign that no longer exists.
+    Edit access was given to that campaign's GM, so it is turned off, exactly as
+    when the player moves the character to another campaign. The database's
+    ``ON DELETE SET NULL`` would clear the link alone, but not the flag.
+    Does not commit.
+    """
+    if not campaign_ids:
+        return
+    db.query(Character).filter(Character.campaign_id.in_(campaign_ids)).update(
+        {Character.campaign_id: None, Character.gm_can_edit: False},
+        synchronize_session=False,
+    )
 
 
 def purge_user_data(db, user_id: str) -> None:
@@ -149,8 +176,29 @@ def purge_user_data(db, user_id: str) -> None:
     remove_files_after_commit(
         db, [row[0] for row in db.query(Character.id).filter_by(user_id=user_id).all()]
     )
-    for campaign in db.query(Campaign).filter_by(owner_id=user_id).all():
+    owned = db.query(Campaign).filter_by(owner_id=user_id).all()
+    # Guests merged into one of these campaigns and others keep the others; one
+    # whose working code lived here gets a fresh one rather than keeping a code
+    # this campaign's owner knew. A guest left with no campaign is kept, as
+    # before, for an admin to remove from the guest list.
+    owned_guests = (
+        db.query(CampaignMember.user_id, CampaignMember.guest_code)
+        .filter(
+            CampaignMember.campaign_id.in_([c.id for c in owned]),
+            CampaignMember.is_guest.is_(True),
+            CampaignMember.user_id != user_id,
+        )
+        .all()
+        if owned
+        else []
+    )
+    detach_campaign_characters(db, [c.id for c in owned])
+    for campaign in owned:
         db.delete(campaign)
+    if owned_guests:
+        db.flush()
+        for guest_id, code in owned_guests:
+            release_guest_membership(db, guest_id, code, delete_when_empty=False)
     # Personal rulesets reach nobody else, so they go with their owner (and
     # their entries with them).
     for ruleset in db.query(Ruleset).filter_by(owner_id=user_id).all():
@@ -170,13 +218,10 @@ def purge_user_data(db, user_id: str) -> None:
 def delete_guest_user(db, user_id: str) -> None:
     """Delete a guest User and everything scoped to it.
 
-    Guests are single-campaign accounts, so once their CampaignMember is removed
-    there's nothing left for them — leaving the User (and its session notes /
-    availability, which aren't FK-cascaded off the user) behind would orphan a
-    login-less account. Only ever deletes genuine guest accounts.
-
-    The caller is responsible for deleting the CampaignMember; this cleans up the
-    backing User and its per-user contributions. Does not commit.
+    Only ever deletes genuine guest accounts. Callers removing a guest from one
+    campaign go through ``release_guest_membership`` instead, which only gets
+    here once the guest has no campaign left - a merged guest can be in several.
+    Does not commit.
     """
     user = db.query(User).filter_by(id=user_id).first()
     if not user or not user.is_guest:
@@ -186,6 +231,71 @@ def delete_guest_user(db, user_id: str) -> None:
     delete_user_sessions(db, user_id)
     purge_user_data(db, user_id)
     db.delete(user)
+
+
+_CODE_ALPHABET = string.ascii_uppercase + string.digits
+_CODE_LENGTH = 10
+
+
+def generate_guest_code(db) -> str:
+    """Return a unique 10-char A–Z0–9 code, retrying on the rare collision."""
+    for _ in range(20):
+        code = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(_CODE_LENGTH))
+        if not db.query(CampaignMember).filter_by(guest_code=code).first():
+            return code
+    raise HTTPException(500, "Could not allocate a unique guest code")
+
+
+def release_guest_membership(
+    db,
+    user_id: str,
+    guest_code: Optional[str],
+    *,
+    by_guest: bool = False,
+    delete_when_empty: bool = True,
+) -> None:
+    """Finish taking a guest out of one campaign, once that membership is gone.
+
+    A guest invited to a single campaign has nothing left once its membership is
+    removed, so the backing account goes too (``delete_guest_user``) - leaving it
+    would orphan a login-less account. ``delete_when_empty=False`` keeps it, for
+    the account-deletion path that has always left such guests for an admin.
+    A guest an admin merged across several campaigns is different: its other
+    memberships, and the characters and notes it keeps there, belong to other
+    tables, possibly other GMs'. Those stay, and the account loses only this
+    campaign, exactly as a regular member would.
+
+    ``guest_code`` is the code the removed membership carried. A merged guest
+    has one working code, on whichever membership it was first invited through.
+    If that is the one going, a membership that remains takes over signing in:
+    the same code when the guest left on their own (``by_guest``), and a fresh
+    one otherwise - the GM who removed them, or deleted the campaign, knows the
+    old code and must not keep signing in as the guest to reach the campaigns
+    they are still in. The other campaign's GM can share the new code. Sessions
+    the guest already has carry on either way; refreshing one does not use the
+    code.
+
+    The caller deletes the membership row first. Does not commit.
+    """
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user or not user.is_guest:
+        return
+    remaining = (
+        db.query(CampaignMember)
+        .filter_by(user_id=user_id)
+        .order_by(CampaignMember.created_at, CampaignMember.id)
+        .all()
+    )
+    if not remaining:
+        if delete_when_empty:
+            delete_guest_user(db, user_id)
+        return
+    if guest_code and not any(m.guest_code for m in remaining):
+        holder = next(
+            (m for m in remaining if m.is_guest and m.status == "accepted"), None
+        )
+        if holder is not None:
+            holder.guest_code = guest_code if by_guest else generate_guest_code(db)
 
 
 # A GM-only secret span in a wiki body: ||text the players must never see||.
@@ -539,8 +649,25 @@ def members_for(c: Campaign, user: CurrentUser, db) -> list:
     return members
 
 
-def serialize_campaign(c: Campaign, members: list, db) -> dict:
-    from ...models import GameSystem, User, CampaignSchedule
+def visible_campaign_system(db, c: Campaign, viewer) -> Optional[GameSystem]:
+    """The game system ``c`` is linked to, if ``viewer`` may see it.
+
+    A GM can link a system their players cannot see - one restricted to GMs, or
+    explicit for a player who has that off. Players in the campaign then get
+    the campaign as if it had no system linked, rather than the name of a
+    system the library hides from them.
+    """
+    if not c.system_id:
+        return None
+    system = db.query(GameSystem).filter_by(id=c.system_id).first()
+    if system is None or not system_browsable(db, system, viewer):
+        return None
+    return system
+
+
+def serialize_campaign(c: Campaign, members: list, db, viewer) -> dict:
+    """The campaign as ``viewer`` sees it."""
+    from ...models import User, CampaignSchedule
 
     owner = db.query(User).filter_by(id=c.owner_id).first()
     owner_display = owner.display_name or owner.username if owner else ""
@@ -549,12 +676,10 @@ def serialize_campaign(c: Campaign, members: list, db) -> dict:
 
     # Human-readable system name: the linked game system's name when set, else
     # the free-text system_name. Lets the UI pin the campaign's system without a
-    # separate systems lookup.
-    system_display = c.system_name or ""
-    if c.system_id:
-        sys_obj = db.query(GameSystem).filter_by(id=c.system_id).first()
-        if sys_obj:
-            system_display = sys_obj.name
+    # separate systems lookup. A linked system the viewer cannot see is left
+    # out, id and all.
+    system = visible_campaign_system(db, c, viewer)
+    system_display = system.name if system else (c.system_name or "")
 
     # Next upcoming scheduled session date (YYYY-MM-DD), if an enabled schedule exists.
     next_session = None
@@ -571,7 +696,7 @@ def serialize_campaign(c: Campaign, members: list, db) -> dict:
         "is_gm_campaign": c.is_gm_campaign,
         "gm_title": c.gm_title,
         "parent_campaign_id": c.parent_campaign_id,
-        "system_id": c.system_id,
+        "system_id": system.id if system else None,
         "system_name": c.system_name,
         "system_display_name": system_display,
         "has_schedule": schedule is not None,

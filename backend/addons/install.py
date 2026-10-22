@@ -346,10 +346,10 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
 
 def _script_entry_name(directory: str, addon_id: str) -> str:
     """Read ``script.entry`` out of a staged manifest, safely."""
-    import yaml
+    from ..services import untrusted_yaml
 
     with open(os.path.join(directory, f"{addon_id}.yml"), "r", encoding="utf-8") as fh:
-        data = yaml.safe_load(fh)
+        data = untrusted_yaml.safe_load(fh)
     entry = ((data or {}).get("script") or {}).get("entry", "")
     if not entry or "/" in entry or "\\" in entry or entry.startswith("."):
         raise AddonError("add-on declares an invalid script entry")

@@ -35,6 +35,7 @@ from ...addons.registry import is_runnable
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import Character, CharacterSchema
+from ...services import untrusted_yaml
 from ...services.characters import catalogue, importing
 from ...services.characters import images as char_images
 from . import _helpers as helpers
@@ -329,10 +330,22 @@ def _ensure_sheet(db: Session, user_id: str, sheet_id: str) -> CharacterSchema:
 
 
 def _parse(text: str) -> Any:
+    """The uploaded file as JSON, or None when it is some other format.
+
+    JSON nested too deeply to walk is refused outright: the parser raises
+    RecursionError past the interpreter's limit, and the importer engine and the
+    script runner both walk or re-serialise the whole document.
+    """
+    too_deep = HTTPException(status_code=400, detail="That file is nested too deeply to read")
     try:
-        return json.loads(text)
+        document = json.loads(text)
     except ValueError:
         return None
+    except RecursionError:
+        raise too_deep from None
+    if untrusted_yaml.too_deep(document):
+        raise too_deep
+    return document
 
 
 def import_external(

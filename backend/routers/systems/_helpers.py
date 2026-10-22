@@ -5,20 +5,26 @@ from ...models import Book, GameSystem, User
 from ...services import access_control, variants
 
 
-def load_browsable_system(db, system_id: str, current_user) -> GameSystem:
-    """The system, or 404 when it is missing or hidden from this user.
+def system_browsable(db, system: GameSystem, current_user) -> bool:
+    """Whether ``current_user`` may see ``system`` at all.
 
     Applies both the access level and the user's explicit-content setting, the
     same rules the system's own detail page uses.
     """
-    system = db.query(GameSystem).filter_by(id=system_id).first()
-    if not system:
-        raise HTTPException(404, "System not found")
     user = db.query(User).filter_by(id=current_user.id).first()
     see_explicit = bool(user.allow_explicit) if user and user.allow_explicit is not None else True
     if system.is_explicit and not see_explicit:
-        raise HTTPException(404, "System not found")
-    if not access_control.can_access_system(db, user, system):
+        return False
+    return access_control.can_access_system(db, user or current_user, system)
+
+
+def load_browsable_system(db, system_id: str, current_user) -> GameSystem:
+    """The system, or 404 when it is missing or hidden from this user.
+
+    See ``system_browsable`` for the rules.
+    """
+    system = db.query(GameSystem).filter_by(id=system_id).first()
+    if not system or not system_browsable(db, system, current_user):
         raise HTTPException(404, "System not found")
     return system
 

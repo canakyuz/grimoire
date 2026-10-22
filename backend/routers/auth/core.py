@@ -2,7 +2,6 @@
 from typing import Optional
 
 from fastapi import Cookie, Depends, HTTPException, Request, Response
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ... import login_devices, passwords
@@ -23,6 +22,7 @@ from ...auth import (
 from ...config import get_db
 from ...log_context import set_log_user
 from ...models import AuthSession, CampaignMember, User
+from ...usernames import find_by_username, fold_username
 from ...security import (
     AUTH_RATE_LIMIT,
     LOGIN_ACCOUNT_SCOPE,
@@ -96,9 +96,11 @@ def auth_login(
     if not password_auth_effective(_get_raw(db)):
         raise HTTPException(403, "Password authentication is disabled")
     # Usernames are matched case-insensitively so a user who registered as
-    # "Admin" can still log in as "admin"/"ADMIN". Passwords stay case-sensitive.
-    typed = data.username.strip().lower()
-    user = db.query(User).filter(func.lower(User.username) == typed).first()
+    # "Admin" can still log in as "admin"/"ADMIN" - "Émile" as "émile" too
+    # (full Unicode folding, see backend/usernames.py). Passwords stay
+    # case-sensitive.
+    typed = fold_username(data.username) or ""
+    user = find_by_username(db, data.username)
     # Failed attempts are also counted per account, whatever address they come
     # from. A browser this account has signed in from before keeps its own
     # count, so failures elsewhere don't lock the owner out of it.

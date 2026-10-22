@@ -13,7 +13,6 @@ book-thumbnail URL the client builds from ``cover_book_id``. Container folders
 (issues #261/#262) hold no books of their own, so 1 and 2 are the only way they
 get art — which is why upload matters for them specifically.
 """
-import io
 import os
 
 from fastapi import Depends, File, HTTPException, Request, UploadFile
@@ -24,6 +23,7 @@ from ...config import LIBRARY_PATH, SYSTEM_COVER_DIR, get_db, logger
 from ...file_cache import cached_file_response
 from ...models import GameSystem
 from ...security import inert_svg_headers
+from ...services.upload_images import is_upload_image
 from ._helpers import get_visible_system, load_browsable_system
 from ._schemas import SystemCoverSourceIn
 
@@ -98,12 +98,8 @@ def serve_system_cover(
 
 
 def _validate_image(data: bytes) -> None:
-    """Verify the bytes really decode as an image (reject disguised files)."""
-    from PIL import Image
-
-    try:
-        Image.open(io.BytesIO(data)).verify()
-    except Exception:
+    """Verify the bytes really decode as a PNG, JPEG, WebP or GIF (reject disguised files)."""
+    if not is_upload_image(data):
         raise HTTPException(400, "File is not a valid image")
 
 
@@ -170,11 +166,16 @@ def set_system_cover_from_source(
     Especially useful for a container folder, which has no books of its own to
     take a thumbnail from.
     """
-    from ...services.image_source import load_source_image, source_ext, validate_image
+    from ...services.image_source import (
+        load_source_image,
+        source_ext,
+        source_formats,
+        validate_image,
+    )
 
     system = get_visible_system(db, system_id, current_user)
     data = load_source_image(db, current_user, body.source_type, body.source_id)
-    validate_image(data)
+    validate_image(data, source_formats(body.source_type))
     filename = _store_system_cover(system, data, source_ext(data))
     db.commit()
     return {"cover_image": filename}

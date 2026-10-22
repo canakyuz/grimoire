@@ -28,6 +28,7 @@ import tempfile
 from typing import Optional
 
 from ..config import BRANDING_DIR
+from .upload_images import open_upload_image
 
 logger = logging.getLogger("grimoire.oidc")
 
@@ -38,7 +39,6 @@ MAX_ICON_UPLOAD_BYTES = 1024 * 1024
 ICON_SIZE_PX = 192
 # Refuse to decode anything bigger than this many pixels (decompression bombs).
 _MAX_SOURCE_PIXELS = 4096 * 4096
-_RASTER_FORMATS = {"PNG", "JPEG", "WEBP", "GIF"}
 
 ICON_FILENAME = "oidc_button_icon.png"
 
@@ -123,12 +123,12 @@ def normalize_icon(data: bytes) -> bytes:
     if _looks_like_svg(data):
         data = _rasterize_svg(data)
 
+    # Only PNG, JPEG, WebP and GIF decoders may run; any other format (BMP,
+    # TIFF, PPM, ...) is refused without Pillow ever parsing it.
     try:
-        img: Image.Image = Image.open(io.BytesIO(data))
+        img: Image.Image = open_upload_image(data)
     except Exception as e:
         raise IconError("File is not a valid image") from e
-    if img.format not in _RASTER_FORMATS:
-        raise IconError(f"Unsupported image format: {img.format}")
     width, height = img.size
     if width <= 0 or height <= 0 or width * height > _MAX_SOURCE_PIXELS:
         raise IconError("Image dimensions are too large")
