@@ -102,3 +102,56 @@ def test_worker_scrubs_before_running_the_script(tmp_path, monkeypatch):
     monkeypatch.setenv("SECRET_KEY", "should-not-reach-the-script")
     addon_worker.main(str(script), "{}", str(result))
     assert json.loads(result.read_text()) == {"seen": []}
+
+
+def test_worker_keeps_the_variables_an_add_on_declared():
+    env = {"BGG_API_TOKEN": "bgg", "OTHER_API_TOKEN": "o", "PATH": "/usr/bin"}
+    removed = scrub_environment(env, keep=["BGG_API_TOKEN"])
+    assert env == {"BGG_API_TOKEN": "bgg", "PATH": "/usr/bin"}
+    assert removed == ["OTHER_API_TOKEN"]
+
+
+def test_worker_never_keeps_grimoires_own_credentials():
+    env = {
+        "SECRET_KEY": "s", "GRIMOIRE_CODEX_DB_API_TOKEN": "t", "OIDC_CLIENT_SECRET": "o",
+        "ADDON_INDEX_CREDENTIALS": "{}", "VALKEY_URL": "redis://:pw@valkey:6379/0",
+    }
+    scrub_environment(env, keep=list(env))
+    assert env == {}
+
+
+def test_worker_hands_declared_variables_to_the_script(tmp_path, monkeypatch):
+    import json
+
+    from backend import addon_worker
+
+    script = tmp_path / "s.py"
+    script.write_text(
+        "import json, os, sys\n"
+        "def main():\n"
+        "    json.load(sys.stdin)\n"
+        "    print(json.dumps({'token': os.environ.get('BGG_API_TOKEN')}))\n"
+    )
+    result = tmp_path / "r.json"
+    monkeypatch.setenv("BGG_API_TOKEN", "bgg")
+    addon_worker.main(str(script), "{}", str(result), ["BGG_API_TOKEN"])
+    assert json.loads(result.read_text()) == {"token": "bgg"}
+
+
+@pytest.mark.parametrize(
+    "name", ["SECRET_KEY", "GRIMOIRE_CODEX_DB_API_TOKEN", "OIDC_CLIENT_SECRET", "bgg_token", "A-B"]
+)
+def test_manifest_refuses_reserved_or_malformed_env_names(name):
+    from pydantic import ValidationError
+
+    from backend.addons.manifest import ScriptSpec
+
+    with pytest.raises(ValidationError):
+        ScriptSpec(entry="run.py", env=[name])
+
+
+def test_manifest_accepts_declared_env_names():
+    from backend.addons.manifest import ScriptSpec
+
+    assert ScriptSpec(entry="run.py", env=["BGG_API_TOKEN"]).env == ["BGG_API_TOKEN"]
+    assert ScriptSpec(entry="run.py").env == []

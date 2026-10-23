@@ -18,7 +18,7 @@ import json
 import os
 import re
 import sys
-from collections.abc import MutableMapping
+from collections.abc import Iterable, MutableMapping
 
 
 def _load_script(script_path: str):
@@ -79,6 +79,19 @@ _SECRET_VARS = ("VALKEY_URL", "DATABASE_URL")  # URLs that carry a password
 # a proxy, or a Redis or database URL a deployment adds.
 _URL_WITH_PASSWORD = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^/@\s]*:[^/@\s]*@")
 
+# An add-on may name the variables its script needs (``script.env`` in its
+# manifest - a source's API token, say), and those survive the scrub. Never
+# Grimoire's own: these names and prefixes cover every credential it reads.
+_RESERVED_VARS = frozenset({"SECRET_KEY", "DATABASE_URL", "VALKEY_URL"})
+_RESERVED_PREFIXES = ("GRIMOIRE_", "OIDC_", "ADDON_")
+ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
+
+
+def is_reserved_env(name: str) -> bool:
+    """Whether ``name`` is one of Grimoire's own settings, never passed to a script."""
+    upper = name.upper()
+    return upper in _RESERVED_VARS or upper.startswith(_RESERVED_PREFIXES)
+
 
 def _is_secret(name: str, value: str) -> bool:
     upper = name.upper()
@@ -91,15 +104,28 @@ def _is_secret(name: str, value: str) -> bool:
     )
 
 
-def scrub_environment(environ: MutableMapping[str, str] = os.environ) -> list[str]:
-    """Remove credentials from ``environ``; returns the names removed."""
-    removed = [name for name, value in list(environ.items()) if _is_secret(name, value)]
+def scrub_environment(
+    environ: MutableMapping[str, str] = os.environ, keep: Iterable[str] = ()
+) -> list[str]:
+    """Remove credentials from ``environ``; returns the names removed.
+
+    ``keep`` names variables the add-on declared it needs; they stay, unless
+    they are Grimoire's own.
+    """
+    kept = {name for name in keep if not is_reserved_env(name)}
+    removed = [
+        name
+        for name, value in list(environ.items())
+        if name not in kept and _is_secret(name, value)
+    ]
     for name in removed:
         environ.pop(name, None)
     return removed
 
 
-def main(script_path: str, request_json: str, result_path: str) -> None:
+def main(
+    script_path: str, request_json: str, result_path: str, keep_env: Iterable[str] = ()
+) -> None:
     """Child-process entry point.  Always writes a result file unless it dies.
 
     Script failures are reported as an ``error`` response rather than allowed to
@@ -107,7 +133,7 @@ def main(script_path: str, request_json: str, result_path: str) -> None:
     which the parent reads as a crash. Distinguishing "the script raised" from
     "the process died" gives the operator a far more useful message.
     """
-    scrub_environment()
+    scrub_environment(keep=keep_env)
     try:
         result = run(script_path, request_json)
     except BaseException as exc:  # noqa: BLE001 - report, never crash silently

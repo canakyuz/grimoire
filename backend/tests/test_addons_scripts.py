@@ -241,6 +241,26 @@ class TestScriptRunner:
         fields, _ = scripts.fetch("a-1", manifest)
         assert fields["license"] == str(addons_dir / "scripted")
 
+    def test_declared_env_reaches_the_script_through_a_subprocess(self, addons_dir, monkeypatch):
+        """A token the add-on declares survives the worker's credential scrub."""
+        monkeypatch.setenv("BGG_API_TOKEN", "bgg")
+        monkeypatch.setenv("UNDECLARED_API_TOKEN", "nope")
+        manifest = _install(
+            addons_dir,
+            """
+            import json, os, sys
+            def main():
+                json.load(sys.stdin)
+                json.dump({"fields": {"license": os.environ.get("BGG_API_TOKEN", ""),
+                                      "publisher": os.environ.get("UNDECLARED_API_TOKEN", "")}},
+                          sys.stdout)
+            """,
+            script={"entry": "run.py", "timeout": 20, "env": ["BGG_API_TOKEN"]},
+        )
+        fields, _ = scripts.fetch("a-1", manifest)
+        assert fields["license"] == "bgg"
+        assert not fields.get("publisher")
+
     def test_no_temp_result_files_are_left_behind(self, addons_dir):
         import tempfile
 

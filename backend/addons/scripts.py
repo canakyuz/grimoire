@@ -57,7 +57,7 @@ def _run(request: dict, manifest: AddonManifest) -> dict:
     timeout = manifest.script.timeout
     proc = MP_CONTEXT.Process(
         target=addon_worker.main,
-        args=(script_path, json.dumps(payload), result_path),
+        args=(script_path, json.dumps(payload), result_path, tuple(manifest.script.env)),
     )
     try:
         proc.start()

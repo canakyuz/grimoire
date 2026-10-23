@@ -79,6 +79,7 @@ DEFAULT_CACHE_TTL = 3600  # seconds, when a manifest does not specify one
 # Script execution.  Bounds mirror the schema's `script.timeout` limits.
 DEFAULT_SCRIPT_TIMEOUT = 60  # seconds
 MAX_SCRIPT_TIMEOUT = 300  # seconds
+MAX_SCRIPT_ENV = 10  # environment variables a script may ask to keep
 
 # Spawn (not fork) the script worker: the server holds a SQLite connection and
 # many threads, and forking that state into a child is unsafe.  Spawn also means

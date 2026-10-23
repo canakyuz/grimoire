@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Release candidates are omitted; their contents are rolled into the stable release that followed.
 
+## [Unreleased]
+
+### Fixed
+
+- Script add-ons that need an API token from the server's environment, such as `BGG_API_TOKEN` for the RPGGeek scrapers, receive it. An add-on names the variables it needs, and Grimoire's own credentials are still withheld
+
 ## [1.9.1] - 2026-10-22
 
 ### Added

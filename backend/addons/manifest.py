@@ -9,6 +9,7 @@ from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from ..addon_worker import ENV_NAME, is_reserved_env
 from .importer_manifest import ImporterSpec
 from .constants import (
     DEFAULT_CACHE_TTL,
@@ -16,6 +17,7 @@ from .constants import (
     DEFAULT_SCRIPT_TIMEOUT,
     DEFAULT_SEARCH_LIMIT,
     MAX_PATTERN_LENGTH,
+    MAX_SCRIPT_ENV,
     MAX_SCRIPT_TIMEOUT,
     MAX_SEARCH_LIMIT,
 )
@@ -115,6 +117,20 @@ class SourceSpec(_Strict):
 class ScriptSpec(_Strict):
     entry: str
     timeout: int = Field(default=DEFAULT_SCRIPT_TIMEOUT, ge=1, le=MAX_SCRIPT_TIMEOUT)
+    # Environment variables the script reads (a source's API token). The worker
+    # scrubs credentials from its environment; these are let through.
+    env: list[str] = Field(default_factory=list, max_length=MAX_SCRIPT_ENV)
+
+    @field_validator("env")
+    @classmethod
+    def plain_env_names(cls, v: list[str]) -> list[str]:
+        """Upper-case variable names, and none of Grimoire's own settings."""
+        for name in v:
+            if not ENV_NAME.match(name):
+                raise ValueError(f"script.env name '{name}' must be an upper-case variable name")
+            if is_reserved_env(name):
+                raise ValueError(f"script.env cannot include Grimoire's own setting '{name}'")
+        return v
 
     @field_validator("entry")
     @classmethod
