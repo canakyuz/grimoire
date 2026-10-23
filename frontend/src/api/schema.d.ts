@@ -3187,6 +3187,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/codex/books/{book_id}/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare a book with Grimoire Codex DB
+         * @description Field by field, what sending the book would change in its linked Grimoire Codex DB record (every field is new when it is not linked), whether the covers differ, the enabled scrapers its data can be credited to, and for a new book the Grimoire Codex DB systems its game system might be.
+         */
+        get: operations["compare_book_api_codex_books__book_id__compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/codex/books/{book_id}/link": {
         parameters: {
             query?: never;
@@ -3218,7 +3238,7 @@ export interface paths {
         put?: never;
         /**
          * Send a book to Grimoire Codex DB
-         * @description Creates the book in Grimoire Codex DB, or sends the chosen fields as a correction to the linked record. Grimoire Codex DB decides whether it applies at once or waits for review.
+         * @description Creates the book in Grimoire Codex DB, or sends the chosen fields as a correction to the linked record, optionally with its cover, source links and a credit for scraped fields. A new book whose game system is not linked names an existing Grimoire Codex DB system or sends its system first. Grimoire Codex DB decides whether it applies at once or waits for review.
          */
         post: operations["submit_book_api_codex_books__book_id__submit_post"];
         delete?: never;
@@ -3263,6 +3283,26 @@ export interface paths {
          * @description Whether Grimoire Codex DB is on for this server (GRIMOIRE_CODEX_DB_API_TOKEN is set), and its address.
          */
         get: operations["get_status_api_codex_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/codex/systems/{system_id}/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare a game system with Grimoire Codex DB
+         * @description As for books: what sending the system would change in Grimoire Codex DB.
+         */
+        get: operations["compare_system_api_codex_systems__system_id__compare_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9379,6 +9419,88 @@ export interface components {
             /** Role */
             role: string;
         };
+        /**
+         * CodexAttribution
+         * @description Credit for fields taken from another catalogue: they stay that source's, not CC0.
+         */
+        CodexAttribution: {
+            /** Fields */
+            fields: ("description" | "tags")[];
+            /** Source */
+            source: string;
+            /** Url */
+            url: string;
+        };
+        /** CodexAttributionSource */
+        CodexAttributionSource: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Url */
+            url: string;
+        };
+        /** CodexCompareCover */
+        CodexCompareCover: {
+            /** Local */
+            local: boolean;
+            /** Remote Url */
+            remote_url?: string | null;
+            /** Status */
+            status: string;
+        };
+        /** CodexCompareField */
+        CodexCompareField: {
+            /** Field */
+            field: string;
+            /** Local */
+            local?: unknown | null;
+            /** Remote */
+            remote?: unknown | null;
+            /** Status */
+            status: string;
+        };
+        /** CodexCompareResponse */
+        CodexCompareResponse: {
+            /** Attribution Sources */
+            attribution_sources: components["schemas"]["CodexAttributionSource"][];
+            /**
+             * Attributions
+             * @default []
+             */
+            attributions?: {
+                [key: string]: unknown;
+            }[];
+            /** Codex Id */
+            codex_id?: string | null;
+            /** Codex Url */
+            codex_url?: string | null;
+            cover: components["schemas"]["CodexCompareCover"];
+            /** Fields */
+            fields: components["schemas"]["CodexCompareField"][];
+            /** Linked */
+            linked: boolean;
+            /** Revision */
+            revision?: number | null;
+            system?: components["schemas"]["CodexCompareSystem"] | null;
+        };
+        /**
+         * CodexCompareSystem
+         * @description A new book's game system, and the Grimoire Codex DB systems it might be.
+         */
+        CodexCompareSystem: {
+            /**
+             * Candidates
+             * @default []
+             */
+            candidates?: components["schemas"]["CodexSystemCandidate"][];
+            /** Codex Id */
+            codex_id?: string | null;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** CodexSettingsResponse */
         CodexSettingsResponse: {
             /** Locked */
@@ -9404,6 +9526,14 @@ export interface components {
         };
         /** CodexSubmit */
         CodexSubmit: {
+            attribution?: components["schemas"]["CodexAttribution"] | null;
+            /** Base Revision */
+            base_revision?: number | null;
+            /**
+             * Cover
+             * @default false
+             */
+            cover?: boolean;
             /** Fields */
             fields?: string[] | null;
             /**
@@ -9411,6 +9541,9 @@ export interface components {
              * @default
              */
             note?: string;
+            /** Sources */
+            sources?: string[];
+            system?: components["schemas"]["CodexSystemChoice"] | null;
         };
         /** CodexSubmitResponse */
         CodexSubmitResponse: {
@@ -9422,6 +9555,42 @@ export interface components {
             linked: boolean;
             /** Status */
             status: string;
+            system?: components["schemas"]["CodexSubmitResult"] | null;
+        };
+        /** CodexSubmitResult */
+        CodexSubmitResult: {
+            /** Codex Id */
+            codex_id?: string | null;
+            /** Edit Url */
+            edit_url: string;
+            /** Linked */
+            linked: boolean;
+            /** Status */
+            status: string;
+        };
+        /** CodexSystemCandidate */
+        CodexSystemCandidate: {
+            /** Codex Id */
+            codex_id: string;
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * CodexSystemChoice
+         * @description For a new book whose game system is not linked: which Grimoire Codex DB system it belongs to.
+         */
+        CodexSystemChoice: {
+            /** Codex Id */
+            codex_id?: string | null;
+            /**
+             * Create
+             * @default false
+             */
+            create?: boolean;
         };
         /** CodexTestResponse */
         CodexTestResponse: {
@@ -24131,6 +24300,42 @@ export interface operations {
             };
         };
     };
+    compare_book_api_codex_books__book_id__compare_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                book_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodexCompareResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     unlink_book_api_codex_books__book_id__link_delete: {
         parameters: {
             query?: never;
@@ -24300,6 +24505,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CodexStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_system_api_codex_systems__system_id__compare_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                system_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodexCompareResponse"];
                 };
             };
             /** @description Validation Error */

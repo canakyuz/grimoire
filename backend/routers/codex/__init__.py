@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends
 
 from ._schemas import (
+    CodexCompareResponse,
     CodexSettingsResponse,
     CodexStatus,
     CodexSubmitResponse,
@@ -9,6 +10,8 @@ from ._schemas import (
     StatusResponse,
 )
 from .core import (
+    compare_book,
+    compare_system,
     get_settings,
     get_status,
     require_enabled,
@@ -65,13 +68,38 @@ router.add_api_route(
     response_model=CodexTestResponse,
 )
 router.add_api_route(
+    "/books/{book_id}/compare",
+    compare_book,
+    methods=["GET"],
+    summary="Compare a book with Grimoire Codex DB",
+    description=(
+        "Field by field, what sending the book would change in its linked Grimoire Codex DB record "
+        "(every field is new when it is not linked), whether the covers differ, the enabled scrapers "
+        "its data can be credited to, and for a new book the Grimoire Codex DB systems its game "
+        "system might be."
+    ),
+    dependencies=_enabled,
+    response_model=CodexCompareResponse,
+)
+router.add_api_route(
+    "/systems/{system_id}/compare",
+    compare_system,
+    methods=["GET"],
+    summary="Compare a game system with Grimoire Codex DB",
+    description="As for books: what sending the system would change in Grimoire Codex DB.",
+    dependencies=_enabled,
+    response_model=CodexCompareResponse,
+)
+router.add_api_route(
     "/books/{book_id}/submit",
     submit_book,
     methods=["POST"],
     summary="Send a book to Grimoire Codex DB",
     description=(
         "Creates the book in Grimoire Codex DB, or sends the chosen fields as a correction to the linked "
-        "record. Grimoire Codex DB decides whether it applies at once or waits for review."
+        "record, optionally with its cover, source links and a credit for scraped fields. A new book "
+        "whose game system is not linked names an existing Grimoire Codex DB system or sends its "
+        "system first. Grimoire Codex DB decides whether it applies at once or waits for review."
     ),
     dependencies=_enabled,
     response_model=CodexSubmitResponse,

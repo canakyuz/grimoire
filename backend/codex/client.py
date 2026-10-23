@@ -67,9 +67,12 @@ def request(
     *,
     params: Optional[dict[str, Any]] = None,
     body: Optional[dict[str, Any]] = None,
+    content: Optional[bytes] = None,
+    content_type: str = "",
 ) -> Any:
     """Call ``{url}/api/v1{path}`` and return the parsed JSON body.
 
+    ``body`` is sent as JSON; ``content`` as raw bytes of ``content_type``.
     Every call sends the API token. Grimoire Codex DB needs it for writes; on
     reads it applies the account's own settings, such as explicit content.
     """
@@ -80,6 +83,8 @@ def request(
         "Accept": "application/json",
         "Authorization": f"Bearer {settings.token}",
     }
+    if content is not None:
+        headers["Content-Type"] = content_type
     try:
         with httpx.Client(timeout=TIMEOUT, follow_redirects=True, max_redirects=3) as client:
             with client.stream(
@@ -87,6 +92,7 @@ def request(
                 f"{settings.url}/api/v1{path}",
                 params={k: v for k, v in (params or {}).items() if v not in (None, "")},
                 json=body,
+                content=content,
                 headers=headers,
             ) as response:
                 chunks: list[bytes] = []
@@ -150,6 +156,18 @@ def submit(settings: CodexSettings, entity_type: str, payload: dict[str, Any]) -
     path = "books" if entity_type == "book" else "systems"
     result: dict[str, Any] = request(settings, "POST", f"/grimoire/{path}", body=payload)
     return result
+
+
+def upload_cover(settings: CodexSettings, data: bytes, content_type: str) -> str:
+    """Upload a cover image (``POST /uploads``) and return its storage key (``covers/<sha256>.<ext>``).
+
+    Uploads are content-addressed, so sending an image Grimoire Codex DB already has is free.
+    """
+    result = request(settings, "POST", "/uploads", content=data, content_type=content_type)
+    key = result.get("key") if isinstance(result, dict) else None
+    if not isinstance(key, str) or not key.startswith("covers/"):
+        raise CodexError("Grimoire Codex DB did not accept the cover")
+    return key
 
 
 def me(settings: CodexSettings) -> dict[str, Any]:

@@ -18,7 +18,7 @@ STATUS_DIFFERS = "differs"
 STATUS_ONLY_INCOMING = "only_incoming"
 
 
-def _is_empty(value: Any) -> bool:
+def is_empty(value: Any) -> bool:
     if value is None:
         return True
     if isinstance(value, str):
@@ -28,13 +28,13 @@ def _is_empty(value: Any) -> bool:
     return False
 
 
-def _normalise(field: str, value: Any) -> Any:
+def normalise(field: str, value: Any) -> Any:
     """Reduce a value to a comparable form.
 
     Lists compare as case-insensitive sets, because order carries no meaning for
     genres or tags and a reordering is not a change worth showing the user.
     """
-    if _is_empty(value):
+    if is_empty(value):
         return None
 
     if field == "publishers":
@@ -101,7 +101,7 @@ def build(
     """
     rows = []
     for field, new_value in incoming.items():
-        if _is_empty(new_value):
+        if is_empty(new_value):
             continue
 
         current = current_tags if field == "tags" else getattr(resource, field, None)
@@ -113,14 +113,14 @@ def build(
             # pre-selected, which is the point — a source link should land
             # without the user having to opt in to overwriting their own list.
             merged = _merge_links(current, new_value)
-            if _normalise(field, current) == _normalise(field, merged):
+            if normalise(field, current) == normalise(field, merged):
                 status = STATUS_SAME
             else:
                 status = STATUS_ONLY_INCOMING
             new_value = merged
-        elif _is_empty(current):
+        elif is_empty(current):
             status = STATUS_ONLY_INCOMING
-        elif _normalise(field, current) == _normalise(field, new_value):
+        elif normalise(field, current) == normalise(field, new_value):
             status = STATUS_SAME
         else:
             status = STATUS_DIFFERS
@@ -128,7 +128,7 @@ def build(
         rows.append(
             {
                 "field": field,
-                "current": None if _is_empty(current) else current,
+                "current": None if is_empty(current) else current,
                 "incoming": new_value,
                 "status": status,
             }

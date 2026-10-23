@@ -8,9 +8,17 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ## [Unreleased]
 
+### Added
+
+- Sending a book or system to Grimoire Codex DB compares it with Grimoire Codex DB first and ticks the fields that differ, showing both values, so a correction is one click
+- The cover can be sent along: a book's first page, rendered sharper than its library thumbnail, or a system's cover art. It is ticked when Grimoire Codex DB has none
+- Pick the scraper a record's data came from as its source. Grimoire fills in the record's page on that site and credits the description and tags to it on Grimoire Codex DB
+
 ### Fixed
 
 - Script add-ons that need an API token from the server's environment, such as `BGG_API_TOKEN` for the RPGGeek scrapers, receive it. An add-on names the variables it needs, and Grimoire's own credentials are still withheld
+- A book whose game system is not in Grimoire Codex DB yet can be sent: choose the matching Grimoire Codex DB system, or send the system along with it
+- New books and systems no longer need a note before they can be sent; a source link does the job, and Grimoire Codex DB asks only accounts it does not trust yet
 
 ## [1.9.1] - 2026-10-22
 

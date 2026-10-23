@@ -18,7 +18,8 @@ Grimoire uses Grimoire Codex DB in three ways:
   book or system (`codex_id`). A linked record shows a link to its Grimoire Codex DB page in its
   editor.
 - **Send records back.** A GM or admin can add a book or system to Grimoire Codex DB,
-  or send chosen fields as a correction to the linked record.
+  or send what differs as a correction to the linked record, with its cover and
+  the source its data came from.
 
 ## Turning it on
 
@@ -54,9 +55,9 @@ Nothing runs in the background or on a schedule.
   exact files this library holds. Turn on **Send file hashes** in settings to
   include them in lookups and in books you send.
 - **System lookups** send the system's name, or your search text.
-- **Sending a record** sends the fields listed under
-  [Sending records](#sending-records). Paths, access levels and cover choices stay
-  local.
+- **Sending a record** sends the fields you choose from those listed under
+  [Sending records](#sending-records), the cover when you tick it, and the source
+  link you pick. Paths and access levels stay local.
 
 Every request carries the API token, so Grimoire Codex DB sees lookups as coming from
 the token's account. That also means the account's own Grimoire Codex DB settings,
@@ -100,14 +101,40 @@ Sending is available to GMs and admins. Edits are
 credited to the Grimoire Codex DB account that owns the token, so on a shared server everyone
 who can edit metadata sends as that account.
 
-- **Add to Grimoire Codex DB** (unlinked records) creates a new Grimoire Codex DB record and asks where the
-  information comes from, because reviewers need it. A book can only be added once
-  its game system is linked, since Grimoire Codex DB needs to know which system it belongs to.
-- **Send corrections** (linked records) sends only the fields you tick. Grimoire Codex DB
-  updates just those fields and leaves the rest of its record alone. Authors and
-  artists replace only those credits, so editors, designers and other roles on Grimoire Codex DB
-  are kept. A correction never changes which systems a Grimoire Codex DB book belongs to: a
-  Grimoire Codex DB book can belong to several systems, and Grimoire knows only one.
+Both buttons open the same form. It first compares the saved record with Grimoire
+Codex DB (every field is new for a record that is not linked yet) and ticks the
+fields worth sending: the ones Grimoire Codex DB has nothing for, and the ones where
+the two disagree, shown side by side. Fields that already match are folded away,
+and a field this library has left empty is never offered, because sending it would
+clear Grimoire Codex DB's value. It compares what is saved, so save your edits first.
+
+- **Cover.** A book sends its first page, rendered sharper than the library
+  thumbnail; comics, images and other formats send the thumbnail. A system sends
+  the cover it shows in the library. The cover is ticked when Grimoire Codex DB has
+  none; when it has a different one it is offered but left unticked, because theirs
+  may be the better scan. Grimoire Codex DB keeps one copy of each image, so a cover
+  it already has is recognised and never listed.
+- **Source.** Pick the scraper add-on the data came from, or **Another link**. A
+  scraper is pre-picked when the record links to its site, with that page filled
+  in. The link goes to reviewers as evidence. For a scraper, the description and
+  tags (whichever are being sent, or already match) are also credited to it:
+  text from another site is not CC0, so Grimoire Codex DB names the source wherever
+  it shows it. A later credit to the same source replaces the earlier one.
+- **Note.** Optional. A new record needs a source link or a note only when Grimoire
+  Codex DB does not trust the account yet, and it says so if one is missing.
+- **A new book's game system.** When the system is not linked, the form lists the
+  Grimoire Codex DB systems with a similar name (an exact match is chosen for you)
+  and offers to add the system as a new record instead. Joining an existing one
+  links the local system once the book is sent. Adding one sends the system first,
+  with its cover and the same source; if it waits for review, the book is held back
+  until it is approved, because a book cannot belong to a system that does not
+  exist yet.
+
+A correction updates just the fields sent and leaves the rest of the Grimoire Codex
+DB record alone. Links are added, never removed. Authors and artists replace only
+those credits, so editors, designers and other roles on Grimoire Codex DB are kept.
+A correction never changes which systems a Grimoire Codex DB book belongs to: a
+Grimoire Codex DB book can belong to several systems, and Grimoire knows only one.
 
 Whether an edit applies at once or waits for review is up to Grimoire Codex DB, based on the
 account's trust and the fields involved. A new record that waits for review is

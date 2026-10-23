@@ -58,7 +58,22 @@ describe('CodexPanel', () => {
     await waitFor(() => expect(onLinkChange).toHaveBeenCalledWith(null))
   })
 
-  it('adds an unlinked book once a source is given, and links it when applied', async () => {
+  it('opens the send form and reports what was sent', async () => {
+    api.get.mockImplementation((url) =>
+      Promise.resolve(
+        url === '/codex/status'
+          ? STATUS
+          : {
+              linked: false,
+              fields: [
+                { field: 'title', local: 'Dead Planet', remote: null, status: 'only_local' },
+              ],
+              cover: { local: false, remote_url: null, status: 'none' },
+              attribution_sources: [],
+              system: null,
+            }
+      )
+    )
     api.post.mockResolvedValue({
       status: 'applied',
       codex_id: 'bk_new001',
@@ -67,11 +82,8 @@ describe('CodexPanel', () => {
     })
     const onLinkChange = renderPanel()
     await userEvent.click(await screen.findByRole('button', { name: 'Add to Grimoire Codex DB' }))
-    const send = screen.getByRole('button', { name: 'Send' })
-    expect(send).toBeDisabled()
-    await userEvent.type(screen.getByLabelText('Where is this from?'), 'My PDF')
-    await userEvent.click(send)
-    expect(api.post).toHaveBeenCalledWith('/codex/books/b1/submit', { note: 'My PDF' })
+    expect(api.get).toHaveBeenCalledWith('/codex/books/b1/compare')
+    await userEvent.click(await screen.findByRole('button', { name: 'Send' }))
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Sent and live on Grimoire Codex DB.'
     )
@@ -80,41 +92,60 @@ describe('CodexPanel', () => {
       'https://codex.test/edits/ed_1'
     )
     expect(onLinkChange).toHaveBeenCalledWith('bk_new001')
+    expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument()
   })
 
-  it('sends only the chosen fields as a correction', async () => {
-    api.post.mockResolvedValue({
-      status: 'pending',
-      codex_id: 'bk_abc123',
-      linked: true,
-      edit_url: 'https://codex.test/edits/ed_2',
+  it('says when a book waits for its new system, and when a correction waits', async () => {
+    api.get.mockImplementation((url) =>
+      Promise.resolve(
+        url === '/codex/status'
+          ? STATUS
+          : {
+              linked: true,
+              revision: 2,
+              fields: [{ field: 'page_count', local: 44, remote: 40, status: 'differs' }],
+              cover: { local: false, remote_url: null, status: 'none' },
+              attribution_sources: [],
+              system: null,
+            }
+      )
+    )
+    api.post.mockResolvedValueOnce({
+      status: 'waiting_for_system',
+      codex_id: null,
+      linked: false,
+      edit_url: 'https://codex.test/edits/ed_3',
     })
     const onLinkChange = renderPanel({ codexId: 'bk_abc123' })
     await userEvent.click(await screen.findByRole('button', { name: 'Send corrections' }))
-    const send = screen.getByRole('button', { name: 'Send' })
-    expect(send).toBeDisabled()
-    await userEvent.click(screen.getByLabelText('Page count'))
-    await userEvent.click(screen.getByLabelText('ISBN'))
-    await userEvent.click(screen.getByLabelText('ISBN'))
-    await userEvent.click(send)
-    expect(api.post).toHaveBeenCalledWith('/codex/books/b1/submit', {
-      fields: ['page_count'],
-      note: '',
+    await userEvent.click(await screen.findByRole('button', { name: 'Send' }))
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Send this book once it is approved'
+    )
+
+    api.post.mockResolvedValueOnce({
+      status: 'pending',
+      codex_id: 'bk_abc123',
+      linked: true,
+      edit_url: 'https://codex.test/edits/ed_4',
     })
+    await userEvent.click(screen.getByRole('button', { name: 'Send corrections' }))
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('button', { name: 'Send' }))
     expect(await screen.findByRole('status')).toHaveTextContent('waits for review')
     expect(onLinkChange).not.toHaveBeenCalled()
   })
 
-  it('shows the error Grimoire Codex DB returned and can be cancelled', async () => {
-    api.post.mockRejectedValue(new Error('Name is required'))
+  it('closes the send form on cancel', async () => {
+    api.get.mockImplementation((url) =>
+      url === '/codex/status' ? Promise.resolve(STATUS) : Promise.reject(new Error('Offline'))
+    )
     renderPanel({ kind: 'systems' })
     await userEvent.click(await screen.findByRole('button', { name: 'Add to Grimoire Codex DB' }))
-    expect(screen.getByText(/creates the system/)).toBeInTheDocument()
-    await userEvent.type(screen.getByLabelText('Where is this from?'), 'x')
-    await userEvent.click(screen.getByRole('button', { name: 'Send' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Name is required')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Offline')
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add to Grimoire Codex DB' })).toBeInTheDocument()
   })
 
   it('reports a failed unlink', async () => {

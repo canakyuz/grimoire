@@ -121,6 +121,26 @@ def incoming_fields(target: str, exported: dict[str, Any]) -> dict[str, Any]:
     return fields
 
 
+def local_record(
+    db: Session,
+    resource: Any,
+    target: str,
+    fields: Optional[list[str]] = None,
+) -> dict[str, Any]:
+    """The record's sendable fields (all of them by default), in the order they are listed."""
+    allowed = BOOK_SUBMIT_FIELDS if target == "book" else SYSTEM_SUBMIT_FIELDS
+    resource_type = "book" if target == "book" else "system"
+    record: dict[str, Any] = {}
+    for field in allowed:
+        if fields is not None and field not in fields:
+            continue
+        if field == "tags":
+            record["tags"] = tag_service.display_tags_for_resource(db, resource_type, resource.id)
+        else:
+            record[field] = getattr(resource, field, None)
+    return record
+
+
 def submit_payload(
     db: Session,
     resource: Any,
@@ -128,36 +148,34 @@ def submit_payload(
     settings: CodexSettings,
     fields: Optional[list[str]] = None,
     note: str = "",
+    systems: Optional[list[str]] = None,
+    allow_empty: bool = False,
 ) -> dict[str, Any]:
     """The body for ``POST /grimoire/books`` or ``/grimoire/systems``.
 
     Linked records send an update of just ``fields`` (all of them by default);
-    unlinked ones create a new Grimoire Codex DB record. A book's system must be linked
-    first, because Grimoire Codex DB needs to know which system the book belongs to.
+    unlinked ones create a new Grimoire Codex DB record. A new book names its
+    Grimoire Codex DB system: ``systems`` when given, else its linked game system's.
+    ``allow_empty`` lets a linked record send no fields, when the caller adds
+    something else to the update (a cover, a credit).
     """
-    allowed = BOOK_SUBMIT_FIELDS if target == "book" else SYSTEM_SUBMIT_FIELDS
-    chosen = [f for f in (fields or allowed) if f in allowed]
-    if not chosen:
+    record = local_record(db, resource, target, fields)
+    if not record and not (allow_empty and resource.codex_id):
         raise ValueError("Choose at least one field to send")
-    resource_type = "book" if target == "book" else "system"
-    record: dict[str, Any] = {}
-    for field in chosen:
-        if field == "tags":
-            record["tags"] = tag_service.display_tags_for_resource(db, resource_type, resource.id)
-        else:
-            record[field] = getattr(resource, field, None)
     payload: dict[str, Any] = {"record": record, "note": note.strip()[:2000]}
     if resource.codex_id:
         payload["codex_id"] = resource.codex_id
-        payload["fields"] = chosen
+        payload["fields"] = list(record)
     if target == "book":
         # Only a new record names its system. A Grimoire Codex DB book can belong to several
         # systems and Grimoire knows one, so an update must not overwrite the list.
         if not resource.codex_id:
-            system = db.get(GameSystem, resource.game_system_id) if resource.game_system_id else None
-            if system is None or not system.codex_id:
-                raise ValueError("Link this book's game system to Grimoire Codex DB first")
-            payload["systems"] = [system.codex_id]
+            if not systems:
+                system = db.get(GameSystem, resource.game_system_id) if resource.game_system_id else None
+                if system is None or not system.codex_id:
+                    raise ValueError("Link this book's game system to Grimoire Codex DB first")
+                systems = [system.codex_id]
+            payload["systems"] = systems
         if settings.send_hashes and resource.content_hash:
             payload["fingerprints"] = [
                 {"algo": "sha256", "hash": resource.content_hash.lower(), "size": resource.file_size or None}

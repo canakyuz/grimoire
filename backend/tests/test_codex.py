@@ -7,7 +7,6 @@ list on a correction). The ``fake`` fixture sets ``GRIMOIRE_CODEX_DB_API_TOKEN``
 it the integration is off and hidden (``TestUnconfigured``).
 """
 import json
-from typing import Any, Callable
 
 import httpx
 import pytest
@@ -18,9 +17,8 @@ from backend.codex.lookup import resolve_paste
 from backend.codex.records import candidate_label, incoming_fields
 from backend.config import SessionLocal
 from backend.models import AppSetting, Book, GameSystem
+from backend.tests.codex_fake import _codex_id, _link, _set, fake_codex  # noqa: F401  (the "fake" fixture)
 from backend.tests.conftest import make_book, make_game_system
-
-_RealClient = httpx.Client
 
 BOOK_EXPORT = {
     "codex_id": "bk_abc123",
@@ -49,72 +47,6 @@ BOOK_EXPORT = {
     "systems": [{"codex_id": "sy_dcc001", "name": "Dungeon Crawl Classics"}],
     "cover_url": None,
 }
-
-
-class FakeCodex:
-    """Records requests and answers them from ``routes``: (method, path) -> handler."""
-
-    def __init__(self) -> None:
-        self.requests: list[httpx.Request] = []
-        self.routes: dict[tuple[str, str], Callable[[httpx.Request], httpx.Response]] = {}
-
-    def on(self, method: str, path: str, status: int = 200, body: Any = None) -> None:
-        self.routes[(method, path)] = lambda _req: httpx.Response(status, json=body)
-
-    def handler(self, request: httpx.Request) -> httpx.Response:
-        self.requests.append(request)
-        route = self.routes.get((request.method, request.url.path))
-        if route is None:
-            return httpx.Response(404, json={"error": "Not found"})
-        return route(request)
-
-    def last(self, path: str) -> httpx.Request:
-        return [r for r in self.requests if r.url.path == path][-1]
-
-    def body(self, path: str) -> dict:
-        return json.loads(self.last(path).content)
-
-
-@pytest.fixture
-def fake(monkeypatch):
-    fake = FakeCodex()
-    transport = httpx.MockTransport(fake.handler)
-    monkeypatch.setattr(
-        codex_client.httpx, "Client", lambda **kw: _RealClient(transport=transport, **kw)
-    )
-    for var in codex.settings.ENV_VARS.values():
-        monkeypatch.delenv(var, raising=False)
-    monkeypatch.setenv("GRIMOIRE_CODEX_DB_API_TOKEN", "cdx_tok")
-    db = SessionLocal()
-    codex.save(db, url="https://codex.test")
-    db.commit()
-    db.close()
-    yield fake
-    db = SessionLocal()
-    db.query(AppSetting).filter(AppSetting.key.like("codex_%")).delete(synchronize_session=False)
-    db.commit()
-    db.close()
-
-
-def _set(**kwargs) -> None:
-    db = SessionLocal()
-    codex.save(db, **kwargs)
-    db.commit()
-    db.close()
-
-
-def _codex_id(model, row_id: str):
-    db = SessionLocal()
-    value = db.get(model, row_id).codex_id
-    db.close()
-    return value
-
-
-def _link(model, row_id: str, codex_id: str) -> None:
-    db = SessionLocal()
-    db.get(model, row_id).codex_id = codex_id
-    db.commit()
-    db.close()
 
 
 # --- Settings ------------------------------------------------------------------------------
@@ -472,6 +404,7 @@ class TestSubmit:
             "codex_id": "sy_cairn2",
             "linked": True,
             "edit_url": "https://codex.test/edits/ed_1",
+            "system": None,
         }
         sent = fake.body("/api/v1/grimoire/systems")
         assert sent["record"]["name"] == "Cairn" and sent["record"]["tags"] == ["osr"]
