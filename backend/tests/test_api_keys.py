@@ -918,7 +918,9 @@ class TestKeyAuthentication:
         assert client.get("/api/stats", headers=_k(legacy)).status_code == 200
         assert client.get("/api/books", headers=_k(legacy)).status_code == 403
 
-    def test_cleanup_rides_the_library_permission(self, client, admin_headers):
+    def test_cleanup_rides_the_library_permission(
+        self, client, admin_headers, library_mounted
+    ):
         no, _ = _create(client, admin_headers, {"library": "read"})
         yes, _ = _create(client, admin_headers, {"library": "write"})
         assert client.post("/api/maintenance/cleanup-missing", headers=_k(no)).status_code == 403

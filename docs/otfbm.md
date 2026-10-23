@@ -18,7 +18,7 @@ Grimoire already knows the map's grid, so it resizes the image until each of the
 2. **Create the share link.** Choose how long it should last - *never* is the default, because a play-by-post battle can run for weeks and OTFBM fetches the background every time the map is drawn. If you already made a link for this map at the same square size, it is reused instead.
 3. **Copy the command** and run it in Discord.
 
-The link is an ordinary share link that serves the resized picture instead of the original. It is listed under **Settings → Account → Sharing** as "OTFBM background", and revoking it there takes the background down. Nothing is written to your library.
+The link is an ordinary share link that serves the resized picture instead of the original. It is listed under **Settings → Connections → Share links** as "OTFBM background", and revoking it there takes the background down. Nothing is written to your library.
 
 If your Grimoire is not reachable from the internet, OTFBM cannot fetch from it. The dialog also lets you **download the resized image** to host somewhere else - OTFBM keeps a list of [image hosts that work](https://docs.otfbm.io/#/pages/image-hosts) - and you then put that URL after `-bg` yourself. The download is a JPEG, or a PNG if the map has transparent areas; OTFBM does not read WebP.
 

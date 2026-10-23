@@ -51,7 +51,7 @@ Logging in issues a **short-lived access token** (30 minutes by default) plus a 
 
 What it buys you is a kill switch. Previously a token was valid for 30 days and there was no way to revoke it short of rotating `SECRET_KEY`, which logged **everyone** out. Now every login is a session you can end individually.
 
-**Managing your sessions.** Settings → User → *Active Sessions* lists every device signed in to your account, with its browser, IP, and when it was last used. Revoke any one of them, or use **Sign out all other devices** to end every session but the one you're on - the thing to do if you've lost a device or think someone else has your password.
+**Managing your sessions.** Settings → Account → *Active Sessions* lists every device signed in to your account, with its browser, IP, and when it was last used. Revoke any one of them, or use **Sign out all other devices** to end every session but the one you're on - the thing to do if you've lost a device or think someone else has your password.
 
 Sessions are also revoked automatically when an admin changes your role or resets your password, when you change your own password (all *other* devices), when a guest's invite code is regenerated, and when an account is deleted. This works the same for OIDC/SSO logins as for local ones.
 
@@ -72,7 +72,7 @@ Two consequences of keying them on `SECRET_KEY`:
 - **Changing `SECRET_KEY` ends every feed and share link**, just as it signs everyone out. OPDS and calendar settings offer a new URL, and share links show as **Lost** - revoke or delete them and make new ones.
 - **Restoring a backup on a server with a different `SECRET_KEY`** has the same effect. Keep `secret_key` (or your `SECRET_KEY` value) with your backups if you want feeds and links to survive a move - but store it separately from them, or a stolen backup becomes usable again.
 
-The **OIDC client secret** entered in Settings → Authentication is kept the same way: encrypted under a key derived from `SECRET_KEY`, and decrypted only when Grimoire presents it to your identity provider, so a backup does not carry it either. If `SECRET_KEY` changes, the stored secret can no longer be read; single sign-on stops until you enter the secret again, and the log says so. Setting `OIDC_CLIENT_SECRET` in the environment instead keeps it out of the database altogether and is the recommended setup.
+The **OIDC client secret** entered in Settings → Sign-in is kept the same way: encrypted under a key derived from `SECRET_KEY`, and decrypted only when Grimoire presents it to your identity provider, so a backup does not carry it either. If `SECRET_KEY` changes, the stored secret can no longer be read; single sign-on stops until you enter the secret again, and the log says so. Setting `OIDC_CLIENT_SECRET` in the environment instead keeps it out of the database altogether and is the recommended setup.
 
 Upgrading from a version that stored these tokens or the client secret in plaintext converts them in place, so every feed URL and share link already handed out keeps working. The first start after that upgrade also compacts the database once (a `VACUUM`), so the old plaintext does not linger in the file's free space. It needs free disk space about the size of the database for a moment; if it cannot run, the log says so and it tries again at the next start.
 

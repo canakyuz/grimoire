@@ -44,9 +44,9 @@ Folder name matching is **case-insensitive**, and hyphens, underscores, and spac
 >
 > Any subfolder name that doesn't match the recognized keywords becomes its own category, slugified from the folder name. For example, a folder named `Bestiary` becomes the `bestiary` category.
 >
-> **Prefer to organize categories yourself?** Turn folder-name inference off in **Settings → Application → Folder Category Inference** (or pin it with the `DISABLE_FOLDER_CATEGORY_INFERENCE` env var); books then fall back to the `uncategorized` category. To disable inference for a single system only, drop an empty `.no-auto-category` file at that system's folder root.
+> **Prefer to organize categories yourself?** Turn folder-name inference off in **Settings → Library → Files & folders → Folder Category Inference** (or pin it with the `DISABLE_FOLDER_CATEGORY_INFERENCE` env var); books then fall back to the `uncategorized` category. To disable inference for a single system only, drop an empty `.no-auto-category` file at that system's folder root.
 >
-> After adding new files, use **Rescan** in the sidebar (or Settings → Maintenance) to pick up the changes. For large libraries you can also rescan a single corner: every system, category, subfolder, and map/token group has its own rescan button that re-scans just that folder.
+> After adding new files, use **Rescan** in the sidebar (or Settings → Library) to pick up the changes. For large libraries you can also rescan a single corner: every system, category, subfolder, and map/token group has its own rescan button that re-scans just that folder.
 
 ### Subfolders within a category
 
@@ -361,7 +361,7 @@ Jellyfin, Kodi, or a plain file manager.
 
 **This is off by default**, and writing needs the library mounted writable. Four formats
 are available (`.opf`, `.nfo`, `.grimoire.json`, `.grimoire.yaml`), enabled in
-**Settings → Maintenance → Metadata Sidecars**. Grimoire only ever overwrites sidecars it
+**Settings → Metadata → Sidecar files**. Grimoire only ever overwrites sidecars it
 wrote itself, so a `.opf` you maintain in Calibre is left alone.
 
 See [Metadata sidecars](sidecars.md) for the full field mapping per format, when writes
@@ -456,7 +456,7 @@ renders in a flat few dozen megabytes; models up to 20 million triangles get a
 preview. Only the heaviest meshes are **queued rather than rendered during the
 scan**, exactly as scanned PDFs are queued for text recognition: the library walk
 finishes at full speed, and those previews are drawn afterwards in a **Rendering
-model previews** phase you can watch in Maintenance. Each queued model gets up to
+model previews** phase you can watch under Settings → Library. Each queued model gets up to
 five minutes - generous on purpose, since the renderer is single-threaded and a
 NAS or mini-PC takes several times longer than a desktop for the same mesh. A
 model that runs out of time during the scan itself is handed to the same queue

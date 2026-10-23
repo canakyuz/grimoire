@@ -98,7 +98,9 @@
     "versions": "Versões",
     "clearSearch": "Limpar pesquisa",
     "removeLink": "Remover ligação",
-    "newBadge": "Novo"
+    "newBadge": "Novo",
+    "dismissError": "Ignorar erro",
+    "confirm": "Confirmar"
   },
   "login": {
     "username": "Nome de utilizador",
@@ -465,7 +467,7 @@
     "archiveFolder": "{{folder}} (etiqueta “{{tag}}”)"
   },
   "files": {
-    "title": "Gerenciador de arquivos",
+    "title": "Gestor de ficheiros",
     "sectionDescription": "Move, rename, and organise the files in your library without leaving Grimoire. Moves keep each item's tags, favorites, reading progress, and campaign links intact.",
     "open": "Abrir o gerenciador de arquivos",
     "description": "Drag files and folders between the two panes to reorganise your library. Indexed items keep their metadata when moved - tags, favorites, progress, and campaign links all follow the file. Changes apply to disk immediately.",
@@ -713,8 +715,8 @@
       "createLink": "Criar ligação de partilha",
       "linkHint": "O OTFBM obtém o fundo a partir desta ligação sempre que desenha o mapa, por isso o seu servidor Grimoire tem de estar acessível a partir da internet.",
       "linkLabel": "Fundo OTFBM ({{cell}} px)",
-      "linkUntil": "Usa a sua ligação de partilha, que expira a {{when}}. Faça a gestão em Definições → Conta → Partilha.",
-      "linkForever": "Usa a sua ligação de partilha, que nunca expira. Faça a gestão em Definições → Conta → Partilha.",
+      "linkUntil": "Usa a sua ligação de partilha, que expira a {{when}}. Faça a gestão em Definições → Ligações.",
+      "linkForever": "Usa a sua ligação de partilha, que nunca expira. Faça a gestão em Definições → Ligações.",
       "selfHost": "Ou aloje-a por conta própria:"
     },
     "vtt": {
@@ -1025,20 +1027,209 @@
   },
   "settings": {
     "title": "Definições",
-    "tabs": {
-      "account": "Conta",
-      "users": "Utilizadores",
-      "authentication": "Autenticação",
-      "application": "Aplicação",
-      "maintenance": "Manutenção",
-      "logs": "Registos",
-      "metadata": "Metadata",
-      "addons": "Extras"
-    },
     "quickActions": {
       "label": "Ações rápidas",
       "rescan": "Reanalisar",
-      "fileManager": "Gerenciador de arquivos"
+      "fileManager": "Gestor de ficheiros"
+    },
+    "nav": {
+      "label": "Secções das definições"
+    },
+    "scopes": {
+      "you": "Pessoal",
+      "server": "Servidor"
+    },
+    "areas": {
+      "account": {
+        "title": "Conta",
+        "description": "O seu nome e e-mail, a sua palavra-passe e os dispositivos com sessão iniciada, e a eliminação da sua conta."
+      },
+      "preferences": {
+        "title": "Preferências",
+        "description": "Idioma, tema e a forma como os livros e a biblioteca abrem para si."
+      },
+      "connections": {
+        "title": "Ligações",
+        "description": "Aplicações de leitura, chaves de API e ligações de partilha - as formas de aceder à sua biblioteca a partir de fora do Grimoire."
+      },
+      "overview": {
+        "title": "Visão geral",
+        "description": "O estado do servidor num relance. Cada linha leva às definições correspondentes."
+      },
+      "people": {
+        "title": "Pessoas",
+        "description": "As contas deste servidor, as respetivas funções e permissões, e os convidados que os mestres convidaram."
+      },
+      "access": {
+        "title": "Acesso e partilha",
+        "description": "O que as pessoas podem alcançar em todo o servidor: ligações de partilha por função, categorias restritas, carregamentos de campanha e chaves de API."
+      },
+      "sign-in": {
+        "title": "Início de sessão",
+        "description": "Como as pessoas iniciam sessão: palavras-passe, início de sessão único (SSO), códigos de convidado e a mensagem da página de início de sessão."
+      },
+      "library": {
+        "title": "Biblioteca",
+        "description": "A análise da pasta da biblioteca, a forma como ficheiros e pastas são lidos, e as ferramentas para os arrumar."
+      },
+      "catalogue": {
+        "title": "Metadados",
+        "description": "De onde vêm os detalhes de livros e sistemas - o Grimoire Codex DB e as listas disponíveis nos editores - e os ficheiros complementares escritos junto aos seus livros."
+      },
+      "addons": {
+        "title": "Extras",
+        "description": "Extras da comunidade - extratores de metadados, importadores de personagens, temas - e os pacotes de conteúdo instalados a partir deles."
+      },
+      "sidebar": {
+        "title": "Barra lateral",
+        "description": "Que secções e estatísticas a barra lateral mostra a todos."
+      },
+      "backups": {
+        "title": "Cópias de segurança",
+        "description": "Faça cópias de segurança da base de dados e dos ficheiros do próprio Grimoire manualmente ou com agendamento, e transfira ou remova cópias antigas."
+      },
+      "logs": {
+        "title": "Registos",
+        "description": "O que o servidor tem feito, em direto, filtrado por nível, utilizador ou texto."
+      }
+    },
+    "groups": {
+      "profile": "Perfil",
+      "security": "Palavra-passe e sessões",
+      "securityDesc": "Altere a sua palavra-passe e veja que dispositivos têm sessão iniciada.",
+      "look": "Idioma e tema",
+      "reading": "Leitura e navegação",
+      "readingDesc": "Como os livros abrem, como a biblioteca apresenta os itens e que conteúdo vê.",
+      "scanning": "Análise",
+      "filesAndFolders": "Ficheiros e pastas",
+      "filesAndFoldersDesc": "Como o Grimoire deduz categorias, títulos e versões a partir da organização da sua biblioteca.",
+      "tools": "Ferramentas da biblioteca",
+      "sidecars": "Ficheiros complementares"
+    },
+    "entries": {
+      "theme": "Tema",
+      "themeDesc": "Claro ou escuro, e qual o tema - incluindo temas da comunidade.",
+      "apiKeysDesc": "Permita que scripts e aplicações usem o Grimoire em seu nome, sem a sua palavra-passe.",
+      "users": "Utilizadores",
+      "usersDesc": "Adicione contas, altere funções e permissões e defina palavras-passe.",
+      "guestsDesc": "Contas só com código que os mestres convidaram para as suas campanhas. Converta, junte ou remova essas contas.",
+      "shareLinkRoles": "Ligações de partilha por função",
+      "fileManager": "Gestor de ficheiros",
+      "fileManagerDesc": "Mova, mude o nome e reorganize os ficheiros da sua biblioteca.",
+      "contentPacksDesc": "Conteúdo de personagens instalado a partir de extras - classes, magias, itens. Remova um pacote para o desinstalar."
+    },
+    "dangerZone": "Zona de perigo",
+    "search": {
+      "label": "Pesquisar nas definições",
+      "placeholder": "Encontrar uma definição",
+      "clear": "Limpar pesquisa",
+      "noResults": "Nada corresponde a “{{query}}”.",
+      "resultCount_one": "{{count}} definição encontrada",
+      "resultCount_other": "{{count}} definições encontradas"
+    },
+    "unsaved": {
+      "title": "Sair sem guardar?",
+      "message": "Esta página tem alterações que não guardou. Se sair agora, serão descartadas.",
+      "leave": "Descartar alterações"
+    },
+    "overview": {
+      "open": "Abrir",
+      "unavailable": "Não foi possível carregar.",
+      "library": {
+        "watching": "A acompanhar alterações",
+        "notWatching": "Sem acompanhar alterações",
+        "schedule": "Reanálise agendada: {{interval}}, às {{time}}",
+        "noSchedule": "Nenhuma reanálise agendada",
+        "watchUnavailable": "O acompanhamento não está a funcionar - abra Biblioteca para ver porquê"
+      },
+      "backups": {
+        "last": "Última cópia de segurança {{when}}",
+        "none": "Ainda não há cópias de segurança",
+        "kept_one": "{{count}} cópia de segurança guardada",
+        "kept_other": "{{count}} cópias de segurança guardadas",
+        "scheduled": "Automáticas: {{interval}}",
+        "manual": "Apenas manuais"
+      },
+      "signIn": {
+        "both": "Palavra-passe e início de sessão único",
+        "ssoOnly": "Apenas início de sessão único",
+        "passwordOnly": "Apenas palavra-passe",
+        "guestsOn": "Códigos de convidado permitidos",
+        "guestsOff": "Códigos de convidado desativados",
+        "ssoIncomplete": "O início de sessão único está ativado, mas não está totalmente configurado"
+      },
+      "people": {
+        "users_one": "{{count}} utilizador",
+        "users_other": "{{count}} utilizadores",
+        "guests_one": "{{count}} convidado",
+        "guests_other": "{{count}} convidados"
+      },
+      "addons": {
+        "installed_one": "{{count}} extra instalado",
+        "installed_other": "{{count}} extras instalados",
+        "updates_one": "{{count}} atualização disponível",
+        "updates_other": "{{count}} atualizações disponíveis"
+      },
+      "codex": {
+        "connected": "Ligado"
+      }
+    },
+    "keywords": {
+      "account": "perfil, utilizador, eu, conta",
+      "display-name": "nome, alcunha, nome de utilizador",
+      "email": "e-mail, correio, endereço",
+      "change-password": "palavra-passe, senha, repor, alterar",
+      "sessions": "dispositivos, terminar sessão, sair, sessão iniciada",
+      "delete-account": "remover, eliminar, fechar conta",
+      "language": "idioma, tradução, inglês, alemão, francês, espanhol, português",
+      "theme": "modo escuro, modo claro, dark mode, cores, aspeto, aparência, skin",
+      "reader": "leitor, visualizador, pdf, deslocamento, página",
+      "library-browsing": "ordenar, grelha, lista, vista predefinida",
+      "content-preferences": "explícito, nsfw, adulto, conteúdo adulto",
+      "opds": "e-reader, leitor de e-books, kavita, panels, chunky, feed, ebook",
+      "api-keys": "token, integração, homepage, script",
+      "share-links": "ligação pública, link, partilhar",
+      "users": "contas, funções, permissões, admin, mestre, gm, jogador, adicionar utilizador",
+      "guests": "códigos de convite, juntar, convidados",
+      "share-link-roles": "permissões, partilha",
+      "category-access": "restringir, explícito, permissões, ocultar categoria",
+      "campaign-uploads": "limites de carregamento, quota, tamanho de ficheiro",
+      "all-api-keys": "tokens, revogar",
+      "password-sign-in": "login, iniciar sessão, contas locais",
+      "oidc": "sso, início de sessão único, openid, keycloak, authentik, authelia, google, botão de início de sessão",
+      "guest-access": "códigos de convite, convidados",
+      "login-message": "página de início de sessão, banner, aviso, termos",
+      "rescan": "analisar, reanalisar, índice, atualizar",
+      "watch": "automático, monitorização de ficheiros, inotify, nfs, smb",
+      "scheduled-rescan": "agendamento, agendada, noturna",
+      "folder-category": "categoria, livros principais, suplementos, pastas",
+      "folder-naming": "nome de ficheiro, título, padrão",
+      "variant-rules": "sem grelha, para impressão, versões",
+      "file-manager": "mover, mudar o nome, organizar",
+      "duplicates": "cópias, duplicados, juntar",
+      "cleanup": "ficheiros em falta, remover, limpar, base de dados",
+      "genres": "etiquetas, géneros, lista de valores",
+      "system-families": "famílias de sistemas, lista de valores",
+      "parent-systems": "lista de valores, edição",
+      "licenses": "ogl, creative commons, orc, licenças, lista de valores",
+      "dice-materials": "dados, materiais, lista de valores",
+      "sidecars": "opf, nfo, json, yaml, exportar, ficheiros de metadados, sidecar",
+      "codex": "fonte de metadados",
+      "community-addons": "extratores, scrapers, importadores, plugins, extensões, add-ons, fontes, temas",
+      "content-packs": "classes, magias, personagens",
+      "sidebar-visibility": "ocultar, menu, navegação",
+      "sidebar-stats": "estatísticas, contagens, rodapé",
+      "backup-list": "cópia de segurança, backup, restaurar, transferir, zip",
+      "backup-schedule": "cópia de segurança automática, retenção, armazenamento",
+      "logs": "depuração, debug, erros",
+      "overview": "estado, painel, dashboard"
+    },
+    "save": {
+      "failed": "Não guardado - {{message}}",
+      "offline": "Não guardado - não foi possível contactar o servidor. Verifique a sua ligação e tente novamente.",
+      "loadFailed": "Não foi possível carregar estas definições - {{message}}",
+      "loadOffline": "Não foi possível carregar estas definições - não foi possível contactar o servidor. Verifique a sua ligação e tente novamente.",
+      "retry": "Tentar novamente"
     }
   },
   "authSettings": {
@@ -1052,7 +1243,12 @@
       "title": "Autenticação por palavra-passe",
       "description": "Permitir que os utilizadores iniciem sessão com nome de utilizador e palavra-passe. Desativar isto impedirá todos os inícios de sessão por palavra-passe.",
       "enable": "Ativar autenticação por palavra-passe",
-      "envLocked": "Bloqueado pela variável de ambiente ALLOW_PASSWORD_AUTHENTICATION (valor atual: {{value}})."
+      "envLocked": "Bloqueado pela variável de ambiente ALLOW_PASSWORD_AUTHENTICATION (valor atual: {{value}}).",
+      "confirmOffTitle": "Desativar o início de sessão com palavra-passe?",
+      "confirmOffMessage": "Todos, incluindo os administradores, terão de iniciar sessão com início de sessão único. Se o início de sessão único deixar de funcionar, defina a variável de ambiente ALLOW_PASSWORD_AUTHENTICATION como true e reinicie o Grimoire para voltar a ativar o início de sessão com palavra-passe.",
+      "confirmOff": "Desativar o início de sessão com palavra-passe",
+      "needsOidc": "O início de sessão com palavra-passe só pode ser desativado depois de o início de sessão único estar configurado - caso contrário, ninguém conseguiria iniciar sessão.",
+      "setUpOidc": "Configure primeiro o início de sessão único"
     },
     "oidc": {
       "title": "Autenticação OpenID Connect",
@@ -1089,7 +1285,6 @@
       "signingAlgUnsupportedHint": "Este algoritmo não consegue verificar os inícios de sessão do seu fornecedor, por isso o login único falha até escolher um dos algoritmos listados - normalmente RS256.",
       "buttonText": "Texto do botão",
       "buttonTextHint": "O que o botão de SSO no ecrã de início de sessão dirá.",
-      "buttonAppearance": "Aspeto do botão",
       "buttonAppearanceHint": "Faça o botão corresponder ao botão oficial de início de sessão do seu fornecedor: carregue o logótipo e copie as cores das diretrizes da marca. Deixe um campo vazio para manter o aspeto do tema.",
       "buttonPreview": "Pré-visualização do botão",
       "buttonBgColor": "Cor de fundo",
@@ -1124,7 +1319,16 @@
       "autoLaunchHint": "Redirecionar automaticamente para o IdP ao visitar a página de início de sessão. Adicione ?autoLaunch=0 para ignorar.",
       "autoRegister": "Registar automaticamente",
       "autoRegisterHint": "Criar automaticamente novas contas locais no primeiro início de sessão OIDC. Sem isto, os utilizadores já têm de existir localmente.",
-      "saveFailed": "Não foi possível guardar."
+      "saveFailed": "Não foi possível guardar.",
+      "copied": "Copiado",
+      "notConfigured": "O início de sessão único não vai funcionar até que o URL do emissor, o ID do cliente e o segredo do cliente estejam definidos.",
+      "groups": {
+        "provider": "Fornecedor",
+        "client": "Cliente",
+        "loginButton": "Botão de início de sessão",
+        "roles": "Funções e permissões",
+        "behaviour": "Comportamento"
+      }
     },
     "guestAccess": {
       "title": "Acesso de convidados",
@@ -1556,7 +1760,7 @@
       "listLabel": "Ligações de partilha",
       "none": "Sem ligações de partilha.",
       "rolesTitle": "Ligações de partilha",
-      "rolesHint": "Quem pode criar ligações de partilha públicas por predefinição. A definição própria de um utilizador na tabela prevalece.",
+      "rolesHint": "Quem pode criar ligações de partilha públicas por predefinição. A definição própria de cada pessoa, em Pessoas, prevalece.",
       "disabled": "As ligações de partilha estão desativadas neste servidor (SHARE_LINKS_ENABLED=false).",
       "adminAlways": "Os admins podem sempre criar ligações de partilha",
       "rolesFailed": "Não foi possível atualizar as predefinições das ligações.",
@@ -1673,8 +1877,7 @@
     },
     "cleanup": {
       "title": "Limpeza da base de dados",
-      "description": "Analisa a base de dados em busca de livros, mapas e tokens cujos ficheiros já não existem no disco e remove os respetivos registos. Esta ação não pode ser anulada - voltar a analisar a biblioteca só voltará a adicionar ficheiros que estejam presentes no disco.",
-      "button": "Remover ficheiros em falta",
+      "description": "Encontra livros, mapas, tokens, áudio e modelos 3D cujos ficheiros já não estão no disco e mostra o que encontrou. Os registos só são removidos depois de confirmar. Esta ação não pode ser anulada - voltar a analisar só volta a adicionar ficheiros que estejam presentes no disco.",
       "cleaning": "A limpar…",
       "nothingToRemove": "Nada a remover - a base de dados está limpa.",
       "removed_one": "Removido {{count}} registo.",
@@ -1685,7 +1888,24 @@
       "maps_other": "{{count}} mapas",
       "tokens_one": "{{count}} token",
       "tokens_other": "{{count}} tokens",
-      "failed": "Falha na limpeza. Verifique os registos do servidor."
+      "failed": "Falha na limpeza. Verifique os registos do servidor.",
+      "find": "Procurar ficheiros em falta…",
+      "checking": "A verificar…",
+      "allPresent": "Todos os registos continuam a ter o seu ficheiro. Nada a remover.",
+      "unavailableTitle": "A pasta da biblioteca está em falta ou vazia",
+      "unavailableBody": "Pode não estar montada. Nada foi removido - verifique a pasta da biblioteca e tente novamente.",
+      "confirmTitle": "Remover os registos de ficheiros em falta?",
+      "confirmMessage": "Estes registos apontam para ficheiros que já não estão no disco. A remoção não pode ser anulada, e as etiquetas, favoritos e progresso de leitura associados também se perdem.",
+      "confirmButton_one": "Remover {{count}} registo",
+      "confirmButton_other": "Remover {{count}} registos",
+      "ofTotal": "(de {{total}})",
+      "wholeKindWarning": "Em pelo menos um tipo, falta o ficheiro a todos os registos. Se parte da biblioteca não estiver montada, cancele e verifique-a primeiro.",
+      "audio_one": "{{count}} ficheiro de áudio",
+      "audio_other": "{{count}} ficheiros de áudio",
+      "models_one": "{{count}} modelo 3D",
+      "models_other": "{{count}} modelos 3D",
+      "offline": "Não foi possível contactar o servidor. Verifique a sua ligação e tente novamente.",
+      "failedWithReason": "Falha na limpeza - {{message}}"
     },
     "sidecars": {
       "title": "Ficheiros de metadados",
@@ -3250,7 +3470,7 @@
       "dark": "Dark",
       "system": "System"
     },
-    "yourThemes": "Theme",
+    "yourThemes": "Temas instalados",
     "community": "Community",
     "browse": "Browse community themes",
     "import": "Import a theme",
@@ -3703,7 +3923,9 @@
     "confirmUninstall": "Desinstalar \"{{name}}\" deste servidor? As personagens mantêm as referências e mostram-nas como não instaladas até que volte. Os conjuntos de regras que o importaram mantêm a sua própria cópia.",
     "installedHelp": "Instalados para todos neste servidor. Qualquer personagem numa ficha compatível pode usar o conteúdo de um pacote de imediato.",
     "emptyInstalled": "Ainda não há pacotes de conteúdo instalados. Explore os pacotes de conteúdo para adicionar um.",
-    "forSheet": "Para {{sheet}}"
+    "forSheet": "Para {{sheet}}",
+    "confirmUninstallTitle": "Desinstalar o pacote de conteúdo?",
+    "uninstallConfirm": "Desinstalar"
   },
   "rulesets": {
     "title": "Conjuntos de regras",

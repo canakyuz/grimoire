@@ -128,7 +128,7 @@ as you expect.
 
 ### 7. Rebuild what was intentionally left out
 
-Trigger a rescan from **Settings → Maintenance → Rescan Library**. This re-indexes the
+Trigger a rescan from **Settings → Library → Scanning → Rescan Library**. This re-indexes the
 library against the restored database and regenerates thumbnails. Rendered pages come
 back on their own as you read.
 
@@ -183,7 +183,7 @@ directory, which Grimoire never touches.
 | Keep at most N backups | `BACKUP_RETENTION_COUNT` | `0` (unlimited) |
 | Keep at most N GB | `BACKUP_RETENTION_GB` | `0` (unlimited) |
 
-All four are configurable in the UI under **Settings → Maintenance → Backups**. Setting
+All four are configurable in the UI under **Settings → Backups**. Setting
 one as an environment variable pins it: the value wins, and the field becomes read-only
 in the UI.
 

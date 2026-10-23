@@ -98,7 +98,9 @@
     "versions": "Versies",
     "clearSearch": "Zoekopdracht wissen",
     "removeLink": "Link verwijderen",
-    "newBadge": "Nieuw"
+    "newBadge": "Nieuw",
+    "dismissError": "Foutmelding sluiten",
+    "confirm": "Bevestigen"
   },
   "login": {
     "username": "Gebruikersnaam",
@@ -465,7 +467,7 @@
     "archiveFolder": "{{folder}} (tag “{{tag}}”)"
   },
   "files": {
-    "title": "Bibliotheek-bestandsbeheer",
+    "title": "Bestandsbeheer",
     "sectionDescription": "Move, rename, and organise the files in your library without leaving Grimoire. Moves keep each item's tags, favorites, reading progress, and campaign links intact.",
     "open": "Bestandsbeheer openen",
     "description": "Drag files and folders between the two panes to reorganise your library. Indexed items keep their metadata when moved - tags, favorites, progress, and campaign links all follow the file. Changes apply to disk immediately.",
@@ -713,8 +715,8 @@
       "createLink": "Deellink maken",
       "linkHint": "OTFBM haalt de achtergrond via deze link op telkens als de kaart wordt getekend, dus je Grimoire-server moet vanaf internet bereikbaar zijn.",
       "linkLabel": "OTFBM-achtergrond ({{cell}} px)",
-      "linkUntil": "Gebruikt je deellink, die verloopt op {{when}}. Beheer hem onder Instellingen → Account → Delen.",
-      "linkForever": "Gebruikt je deellink, die nooit verloopt. Beheer hem onder Instellingen → Account → Delen.",
+      "linkUntil": "Gebruikt je deellink, die verloopt op {{when}}. Beheer hem onder Instellingen → Verbindingen.",
+      "linkForever": "Gebruikt je deellink, die nooit verloopt. Beheer hem onder Instellingen → Verbindingen.",
       "selfHost": "Of host hem zelf:"
     },
     "vtt": {
@@ -1025,20 +1027,209 @@
   },
   "settings": {
     "title": "Instellingen",
-    "tabs": {
-      "account": "Account",
-      "users": "Gebruikers",
-      "authentication": "Verificatie",
-      "application": "Applicatie",
-      "maintenance": "Onderhoud",
-      "logs": "Logboeken",
-      "metadata": "Metadata",
-      "addons": "Add-ons"
-    },
     "quickActions": {
       "label": "Snelle acties",
       "rescan": "Opnieuw scannen",
       "fileManager": "Bestandsbeheer"
+    },
+    "nav": {
+      "label": "Onderdelen van instellingen"
+    },
+    "scopes": {
+      "you": "Jij",
+      "server": "Server"
+    },
+    "areas": {
+      "account": {
+        "title": "Account",
+        "description": "Je naam en e-mailadres, je wachtwoord en aangemelde apparaten, en het verwijderen van je account."
+      },
+      "preferences": {
+        "title": "Voorkeuren",
+        "description": "Taal, thema en hoe boeken en de bibliotheek voor jou openen."
+      },
+      "connections": {
+        "title": "Verbindingen",
+        "description": "Leesapps, API-sleutels en deellinks - de manieren om van buiten Grimoire bij je bibliotheek te komen."
+      },
+      "overview": {
+        "title": "Overzicht",
+        "description": "Hoe de server ervoor staat, in één oogopslag. Elke regel linkt naar de bijbehorende instellingen."
+      },
+      "people": {
+        "title": "Personen",
+        "description": "Accounts op deze server, hun rollen en rechten, en de gasten die GM's hebben uitgenodigd."
+      },
+      "access": {
+        "title": "Toegang en delen",
+        "description": "Waar mensen op de hele server bij mogen: deellinks per rol, beperkte categorieën, campagne-uploads en API-sleutels."
+      },
+      "sign-in": {
+        "title": "Aanmelden",
+        "description": "Hoe mensen zich aanmelden: wachtwoorden, single sign-on, gastcodes en het bericht op de aanmeldpagina."
+      },
+      "library": {
+        "title": "Bibliotheek",
+        "description": "Het scannen van de bibliotheekmap, hoe bestanden en mappen worden gelezen, en de hulpmiddelen om ze op te ruimen."
+      },
+      "catalogue": {
+        "title": "Metadata",
+        "description": "Waar details van boeken en systemen vandaan komen - Grimoire Codex DB en de keuzelijsten in de editors - en de sidecar-bestanden die naast je boeken worden geschreven."
+      },
+      "addons": {
+        "title": "Add-ons",
+        "description": "Community-add-ons - metadata-scrapers, personage-importers, thema's - en de inhoudspakketten die ermee zijn geïnstalleerd."
+      },
+      "sidebar": {
+        "title": "Zijbalk",
+        "description": "Welke onderdelen en statistieken de zijbalk aan iedereen toont."
+      },
+      "backups": {
+        "title": "Back-ups",
+        "description": "Maak handmatig of volgens een schema een back-up van de database en de eigen bestanden van Grimoire, en download of verwijder oude back-ups."
+      },
+      "logs": {
+        "title": "Logboeken",
+        "description": "Wat de server heeft gedaan, live, gefilterd op niveau, gebruiker of tekst."
+      }
+    },
+    "groups": {
+      "profile": "Profiel",
+      "security": "Wachtwoord en sessies",
+      "securityDesc": "Wijzig je wachtwoord en bekijk welke apparaten zijn aangemeld.",
+      "look": "Taal en thema",
+      "reading": "Lezen en bladeren",
+      "readingDesc": "Hoe boeken openen, hoe de bibliotheek dingen toont en welke inhoud je ziet.",
+      "scanning": "Scannen",
+      "filesAndFolders": "Bestanden en mappen",
+      "filesAndFoldersDesc": "Hoe Grimoire categorieën, titels en versies afleidt uit de indeling van je bibliotheek.",
+      "tools": "Bibliotheekhulpmiddelen",
+      "sidecars": "Sidecar-bestanden"
+    },
+    "entries": {
+      "theme": "Thema",
+      "themeDesc": "Licht of donker, en welk thema - inclusief community-thema's.",
+      "apiKeysDesc": "Laat scripts en apps Grimoire als jou gebruiken, zonder je wachtwoord.",
+      "users": "Gebruikers",
+      "usersDesc": "Voeg accounts toe, wijzig rollen en rechten, en stel wachtwoorden in.",
+      "guestsDesc": "Accounts met alleen een code die GM's voor hun campagnes hebben uitgenodigd. Zet ze om, voeg ze samen of verwijder ze.",
+      "shareLinkRoles": "Deellinks per rol",
+      "fileManager": "Bestandsbeheer",
+      "fileManagerDesc": "Verplaats, hernoem en herorganiseer de bestanden in je bibliotheek.",
+      "contentPacksDesc": "Personage-inhoud die via add-ons is geïnstalleerd - klassen, spreuken, voorwerpen. Verwijder een pakket om het te deïnstalleren."
+    },
+    "dangerZone": "Gevarenzone",
+    "search": {
+      "label": "Instellingen doorzoeken",
+      "placeholder": "Zoek een instelling",
+      "clear": "Zoekopdracht wissen",
+      "noResults": "Niets komt overeen met ‘{{query}}’.",
+      "resultCount_one": "{{count}} instelling gevonden",
+      "resultCount_other": "{{count}} instellingen gevonden"
+    },
+    "unsaved": {
+      "title": "Verlaten zonder op te slaan?",
+      "message": "Deze pagina heeft wijzigingen die je niet hebt opgeslagen. Als je nu weggaat, gaan ze verloren.",
+      "leave": "Wijzigingen negeren"
+    },
+    "overview": {
+      "open": "Openen",
+      "unavailable": "Kon dit niet laden.",
+      "library": {
+        "watching": "Wijzigingen worden gevolgd",
+        "notWatching": "Wijzigingen worden niet gevolgd",
+        "schedule": "Geplande scan: {{interval}}, om {{time}}",
+        "noSchedule": "Geen geplande scan",
+        "watchUnavailable": "Volgen werkt niet - open Bibliotheek om te zien waarom"
+      },
+      "backups": {
+        "last": "Laatste back-up {{when}}",
+        "none": "Nog geen back-ups",
+        "kept_one": "{{count}} back-up bewaard",
+        "kept_other": "{{count}} back-ups bewaard",
+        "scheduled": "Automatisch: {{interval}}",
+        "manual": "Alleen handmatig"
+      },
+      "signIn": {
+        "both": "Wachtwoord en single sign-on",
+        "ssoOnly": "Alleen single sign-on",
+        "passwordOnly": "Alleen wachtwoord",
+        "guestsOn": "Gastcodes toegestaan",
+        "guestsOff": "Gastcodes uit",
+        "ssoIncomplete": "Single sign-on staat aan maar is niet volledig ingesteld"
+      },
+      "people": {
+        "users_one": "{{count}} gebruiker",
+        "users_other": "{{count}} gebruikers",
+        "guests_one": "{{count}} gast",
+        "guests_other": "{{count}} gasten"
+      },
+      "addons": {
+        "installed_one": "{{count}} add-on geïnstalleerd",
+        "installed_other": "{{count}} add-ons geïnstalleerd",
+        "updates_one": "{{count}} update beschikbaar",
+        "updates_other": "{{count}} updates beschikbaar"
+      },
+      "codex": {
+        "connected": "Verbonden"
+      }
+    },
+    "keywords": {
+      "account": "profiel, gebruiker, ik, account",
+      "display-name": "naam, bijnaam, gebruikersnaam, weergavenaam",
+      "email": "mail, e-mail, adres",
+      "change-password": "wachtwoord, resetten, wijzigen",
+      "sessions": "apparaten, afmelden, uitloggen, aangemeld",
+      "delete-account": "verwijderen, account opheffen",
+      "language": "taal, vertaling, engels, duits, frans, spaans, nederlands",
+      "theme": "donkere modus, lichte modus, dark mode, kleuren, uiterlijk, weergave, skin",
+      "reader": "lezer, viewer, pdf, scrollen, pagina",
+      "library-browsing": "sorteren, raster, lijst, standaardweergave",
+      "content-preferences": "expliciet, nsfw, volwassenen, 18+",
+      "opds": "e-reader, kavita, panels, chunky, feed, e-book",
+      "api-keys": "token, integratie, homepage, script",
+      "share-links": "openbare link, delen",
+      "users": "accounts, rollen, rechten, admin, gm, speler, gebruiker toevoegen",
+      "guests": "uitnodigingscodes, samenvoegen, gasten",
+      "share-link-roles": "rechten, delen",
+      "category-access": "beperken, expliciet, rechten, categorie verbergen",
+      "campaign-uploads": "uploadlimieten, quotum, bestandsgrootte",
+      "all-api-keys": "tokens, intrekken",
+      "password-sign-in": "inloggen, aanmelden, lokale accounts",
+      "oidc": "sso, single sign-on, openid, keycloak, authentik, authelia, google, aanmeldknop",
+      "guest-access": "uitnodigingscodes, gasten",
+      "login-message": "aanmeldpagina, inlogpagina, banner, mededeling, voorwaarden",
+      "rescan": "scannen, index, vernieuwen",
+      "watch": "automatisch, bestanden volgen, inotify, nfs, smb",
+      "scheduled-rescan": "schema, gepland, 's nachts",
+      "folder-category": "categorie, kernregelboeken, supplementen, mappen",
+      "folder-naming": "bestandsnaam, titel, patroon",
+      "variant-rules": "zonder raster, printvriendelijk, versies",
+      "file-manager": "verplaatsen, hernoemen, organiseren",
+      "duplicates": "kopieën, dubbele, ontdubbelen, samenvoegen",
+      "cleanup": "ontbrekende bestanden, verwijderen, opschonen, database",
+      "genres": "tags, keuzelijst",
+      "system-families": "systeemfamilies, keuzelijst",
+      "parent-systems": "keuzelijst, editie",
+      "licenses": "ogl, creative commons, orc, licenties, keuzelijst",
+      "dice-materials": "dobbelstenen, materialen, keuzelijst",
+      "sidecars": "opf, nfo, json, yaml, exporteren, metadatabestanden, sidecar",
+      "codex": "metadatabron",
+      "community-addons": "scrapers, importers, plug-ins, extensies, bronnen, thema's",
+      "content-packs": "klassen, spreuken, personages",
+      "sidebar-visibility": "verbergen, menu, navigatie",
+      "sidebar-stats": "statistieken, aantallen, voettekst",
+      "backup-list": "back-up, backup, herstellen, downloaden, zip",
+      "backup-schedule": "automatische back-up, bewaartermijn, opslag",
+      "logs": "debug, fouten, logs",
+      "overview": "status, dashboard"
+    },
+    "save": {
+      "failed": "Niet opgeslagen - {{message}}",
+      "offline": "Niet opgeslagen - de server was niet bereikbaar. Controleer je verbinding en probeer het opnieuw.",
+      "loadFailed": "Kon deze instellingen niet laden - {{message}}",
+      "loadOffline": "Kon deze instellingen niet laden - de server was niet bereikbaar. Controleer je verbinding en probeer het opnieuw.",
+      "retry": "Opnieuw proberen"
     }
   },
   "authSettings": {
@@ -1052,7 +1243,12 @@
       "title": "Wachtwoordverificatie",
       "description": "Sta gebruikers toe zich aan te melden met een gebruikersnaam en wachtwoord. Dit uitschakelen verhindert alle wachtwoordaanmeldingen.",
       "enable": "Wachtwoordverificatie inschakelen",
-      "envLocked": "Vergrendeld door de omgevingsvariabele ALLOW_PASSWORD_AUTHENTICATION (huidige waarde: {{value}})."
+      "envLocked": "Vergrendeld door de omgevingsvariabele ALLOW_PASSWORD_AUTHENTICATION (huidige waarde: {{value}}).",
+      "confirmOffTitle": "Aanmelden met wachtwoord uitschakelen?",
+      "confirmOffMessage": "Iedereen, ook beheerders, moet zich dan aanmelden met single sign-on. Werkt single sign-on niet meer, zet dan de omgevingsvariabele ALLOW_PASSWORD_AUTHENTICATION op true en start Grimoire opnieuw om aanmelden met wachtwoord weer in te schakelen.",
+      "confirmOff": "Aanmelden met wachtwoord uitschakelen",
+      "needsOidc": "Aanmelden met wachtwoord kan pas worden uitgeschakeld als single sign-on is ingesteld - anders kan niemand zich meer aanmelden.",
+      "setUpOidc": "Stel eerst single sign-on in"
     },
     "oidc": {
       "title": "OpenID Connect-verificatie",
@@ -1089,7 +1285,6 @@
       "signingAlgUnsupportedHint": "Met dit algoritme kunnen de aanmeldingen van je provider niet worden gecontroleerd, dus single sign-on mislukt totdat je een van de vermelde algoritmen kiest - meestal RS256.",
       "buttonText": "Knoptekst",
       "buttonTextHint": "Wat de SSO-knop op het aanmeldscherm zal weergeven.",
-      "buttonAppearance": "Uiterlijk van de knop",
       "buttonAppearanceHint": "Laat de knop lijken op de officiële inlogknop van je provider: upload het logo en neem de kleuren over uit de huisstijlrichtlijnen. Laat een veld leeg om het uiterlijk van het thema te behouden.",
       "buttonPreview": "Voorbeeld van de knop",
       "buttonBgColor": "Achtergrondkleur",
@@ -1124,7 +1319,16 @@
       "autoLaunchHint": "Automatisch doorverwijzen naar de IdP bij het bezoeken van de aanmeldpagina. Voeg ?autoLaunch=0 toe om dit te omzeilen.",
       "autoRegister": "Automatisch registreren",
       "autoRegisterHint": "Maak automatisch nieuwe lokale accounts aan bij de eerste OIDC-aanmelding. Zonder dit moeten gebruikers al lokaal bestaan.",
-      "saveFailed": "Kan niet opslaan."
+      "saveFailed": "Kan niet opslaan.",
+      "copied": "Gekopieerd",
+      "notConfigured": "Aanmelden met single sign-on werkt pas als de issuer-URL, client-ID en client-secret zijn ingesteld.",
+      "groups": {
+        "provider": "Provider",
+        "client": "Client",
+        "loginButton": "Aanmeldknop",
+        "roles": "Rollen en rechten",
+        "behaviour": "Gedrag"
+      }
     },
     "guestAccess": {
       "title": "Gasttoegang",
@@ -1556,7 +1760,7 @@
       "listLabel": "Deellinks",
       "none": "Geen deellinks.",
       "rolesTitle": "Deellinks",
-      "rolesHint": "Wie standaard openbare deellinks mag maken. De eigen instelling van een gebruiker in de tabel gaat voor.",
+      "rolesHint": "Wie standaard openbare deellinks mag maken. De eigen instelling van een persoon, onder Personen, gaat voor.",
       "disabled": "Deellinks staan uit op deze server (SHARE_LINKS_ENABLED=false).",
       "adminAlways": "Admins kunnen altijd deellinks maken",
       "rolesFailed": "De standaardinstellingen voor deellinks konden niet worden bijgewerkt.",
@@ -1673,8 +1877,7 @@
     },
     "cleanup": {
       "title": "Databaseopschoning",
-      "description": "Scant de database op boeken, kaarten en tokens waarvan de bestanden niet langer op de schijf bestaan en verwijdert hun records. Dit kan niet ongedaan worden gemaakt - bij het opnieuw scannen van de bibliotheek worden alleen bestanden opnieuw toegevoegd die op de schijf aanwezig zijn.",
-      "button": "Ontbrekende bestanden verwijderen",
+      "description": "Zoekt boeken, kaarten, tokens, audio en 3D-modellen waarvan de bestanden niet meer op de schijf staan, en laat zien wat er is gevonden. De records worden pas verwijderd als je bevestigt. Dit kan niet ongedaan worden gemaakt - opnieuw scannen voegt alleen bestanden toe die op de schijf aanwezig zijn.",
       "cleaning": "Opschonen…",
       "nothingToRemove": "Niets te verwijderen - de database is schoon.",
       "removed_one": "{{count}} record verwijderd.",
@@ -1685,7 +1888,24 @@
       "maps_other": "{{count}} kaarten",
       "tokens_one": "{{count}} token",
       "tokens_other": "{{count}} tokens",
-      "failed": "Opschoning mislukt. Controleer de serverlogboeken."
+      "failed": "Opschoning mislukt. Controleer de serverlogboeken.",
+      "find": "Ontbrekende bestanden zoeken…",
+      "checking": "Controleren…",
+      "allPresent": "Elk record heeft zijn bestand nog. Niets te verwijderen.",
+      "unavailableTitle": "De bibliotheekmap ontbreekt of is leeg",
+      "unavailableBody": "Hij is mogelijk niet gekoppeld. Er is niets verwijderd - controleer de bibliotheekmap en probeer het opnieuw.",
+      "confirmTitle": "Records van ontbrekende bestanden verwijderen?",
+      "confirmMessage": "Deze records verwijzen naar bestanden die niet meer op de schijf staan. Verwijderen kan niet ongedaan worden gemaakt, en de tags, favorieten en leesvoortgang ervan verdwijnen ook.",
+      "confirmButton_one": "{{count}} record verwijderen",
+      "confirmButton_other": "{{count}} records verwijderen",
+      "ofTotal": "(van {{total}})",
+      "wholeKindWarning": "Bij minstens één soort mist elk record zijn bestand. Als een deel van de bibliotheek niet is gekoppeld, annuleer dan en controleer dat eerst.",
+      "audio_one": "{{count}} audiobestand",
+      "audio_other": "{{count}} audiobestanden",
+      "models_one": "{{count}} 3D-model",
+      "models_other": "{{count}} 3D-modellen",
+      "offline": "Kon de server niet bereiken. Controleer je verbinding en probeer het opnieuw.",
+      "failedWithReason": "Opschoning mislukt - {{message}}"
     },
     "sidecars": {
       "title": "Metadatabestanden",
@@ -3250,7 +3470,7 @@
       "dark": "Dark",
       "system": "System"
     },
-    "yourThemes": "Theme",
+    "yourThemes": "Geïnstalleerde thema's",
     "community": "Community",
     "browse": "Browse community themes",
     "import": "Import a theme",
@@ -3703,7 +3923,9 @@
     "confirmUninstall": "\"{{name}}\" van deze server verwijderen? Personages behouden hun verwijzingen en tonen ze als niet geïnstalleerd tot het terugkomt. Regelsets die het importeerden houden hun eigen kopie.",
     "installedHelp": "Geïnstalleerd voor iedereen op deze server. Elk personage op een passend blad kan de inhoud van een pakket meteen gebruiken.",
     "emptyInstalled": "Nog geen inhoudspakketten geïnstalleerd. Blader door de inhoudspakketten om er een toe te voegen.",
-    "forSheet": "Voor {{sheet}}"
+    "forSheet": "Voor {{sheet}}",
+    "confirmUninstallTitle": "Inhoudspakket verwijderen?",
+    "uninstallConfirm": "Verwijderen"
   },
   "rulesets": {
     "title": "Regelsets",

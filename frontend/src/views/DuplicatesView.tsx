@@ -296,7 +296,7 @@ export default function DuplicatesView() {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-        <button onClick={() => navigate('/settings/maintenance')} style={ghostBtn}>
+        <button onClick={() => navigate('/settings/library#duplicates')} style={ghostBtn}>
           <LuArrowLeft size={14} /> {t('files.backToSettings')}
         </button>
       </div>

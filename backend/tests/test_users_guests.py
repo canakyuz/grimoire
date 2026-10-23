@@ -1,6 +1,8 @@
 """Admin listing + conversion of per-campaign guest accounts (1.5.0)."""
 import pytest
 
+from backend.tests.conftest import OIDC_CLEARED, OIDC_CONFIGURED
+
 
 def _set_guest_access(client, admin_headers, enabled: bool):
     resp = client.patch(
@@ -105,6 +107,8 @@ class TestConvertGuest:
     def test_convert_without_password_when_password_auth_disabled(
         self, client, admin_headers, guest
     ):
+        # Password sign-in only goes off once OIDC is set up to replace it.
+        client.patch("/api/settings", json=OIDC_CONFIGURED, headers=admin_headers)
         _set_password_auth(client, admin_headers, False)
         try:
             resp = client.post(
@@ -116,6 +120,7 @@ class TestConvertGuest:
             assert resp.json()["username"] == "oidc_only"
         finally:
             _set_password_auth(client, admin_headers, True)
+            client.patch("/api/settings", json=OIDC_CLEARED, headers=admin_headers)
 
     def test_convert_rejects_duplicate_username(self, client, admin_headers, guest):
         _set_password_auth(client, admin_headers, True)

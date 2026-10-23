@@ -136,6 +136,8 @@ class SettingsResponse(BaseModel):
     # OIDC config (`_helpers._oidc_to_typed`) — the client secret is never
     # returned, only whether one is set and how long it is.
     oidc_enabled: bool
+    # Enabled AND has the issuer, client id and secret a sign-in needs.
+    oidc_configured: bool
     oidc_issuer_url: str
     oidc_token_issuer: str
     oidc_authorization_endpoint: str

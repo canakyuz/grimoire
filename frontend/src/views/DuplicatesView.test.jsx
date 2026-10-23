@@ -330,10 +330,10 @@ describe('DuplicatesView', () => {
     expect(groups).not.toHaveBeenCalled()
   })
 
-  it('goes back to the maintenance tab', async () => {
+  it('goes back to the duplicates section of the Library settings', async () => {
     render(<DuplicatesView />)
     await userEvent.click(screen.getByRole('button', { name: /files.backToSettings/ }))
-    expect(navigate).toHaveBeenCalledWith('/settings/maintenance')
+    expect(navigate).toHaveBeenCalledWith('/settings/library#duplicates')
   })
 })
 

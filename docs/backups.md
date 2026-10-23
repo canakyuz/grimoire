@@ -1,7 +1,7 @@
 # Backups
 
 Grimoire can snapshot its own database and the files you have uploaded through it, on
-demand or on a schedule - under **Settings → Maintenance → Backups**.
+demand or on a schedule - under **Settings → Backups**.
 
 ---
 

@@ -25,8 +25,8 @@ refuses every request and Grimoire logs a warning at startup.
 
 ## Connecting an assistant
 
-1. **Create an API key** in Settings → API keys. Admins can always hold keys; anyone else needs
-   an admin to turn keys on for them in Settings → Users. Pick the permissions for what you want
+1. **Create an API key** in Settings → Connections → API Keys. Admins can always hold keys; anyone else needs
+   an admin to turn keys on for them in Settings → People. Pick the permissions for what you want
    the assistant to do (see [What it can do](#what-it-can-do)) - **Read** on Search, Books, Game
    systems and Campaigns covers everything read-only. Once MCP is on, the dialog that shows your
    new key also shows the command to connect Claude Code with it.
@@ -124,7 +124,7 @@ The protocol is handled by the official [MCP Python SDK](https://github.com/mode
   offer; fix the key rather than following that prompt.
 - **`403` "API keys are disabled on this server"** - set `API_KEYS_ENABLED=true`.
 - **`403` "API keys are not enabled for your account"** - an admin needs to turn keys on for
-  you in Settings → Users.
+  you in Settings → People.
 - **The assistant is missing a tool** - the key lacks the permission it needs (see the tables
   above), or, for `tag_books`, your account is a player.
 - **`403` "This host name isn't allowed for MCP"** - the assistant reaches Grimoire at an

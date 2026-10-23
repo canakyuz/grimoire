@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import BackupScheduleSection from './BackupScheduleSection'
 import { backups } from '../../api'
+import { SettingsDirtyContext } from './settingsDirty'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
@@ -90,6 +91,54 @@ describe('BackupScheduleSection', () => {
 
     fireEvent.click(saveButton())
     expect(await screen.findByText(/Parent directory does not exist/)).toBeInTheDocument()
+  })
+
+  it('says why it has nothing to show when the settings fail to load', async () => {
+    backups.getSettings.mockRejectedValue(new Error('down'))
+    render(<BackupScheduleSection />)
+    expect(await screen.findByText('backups.schedule.loadFailed')).toBeInTheDocument()
+  })
+
+  it('announces a save and falls back to a generic failure message', async () => {
+    render(<BackupScheduleSection />)
+    await screen.findByText('backups.schedule.title')
+    fireEvent.click(saveButton())
+    expect(await screen.findByRole('status')).toHaveTextContent('backups.schedule.saved')
+
+    backups.saveSettings.mockRejectedValue({})
+    fireEvent.click(saveButton())
+    expect(await screen.findByRole('alert')).toHaveTextContent('backups.schedule.saveFailed')
+  })
+
+  it('reports unsaved edits until they are saved', async () => {
+    const set = vi.fn()
+    const dirty = () => set.mock.calls.filter(([id]) => id === 'backup-schedule').at(-1)?.[1]
+    const { unmount } = render(
+      <SettingsDirtyContext.Provider value={{ set }}>
+        <BackupScheduleSection />
+      </SettingsDirtyContext.Provider>
+    )
+    await screen.findByText('backups.schedule.title')
+    expect(dirty()).toBe(false)
+
+    fireEvent.click(screen.getByRole('button', { name: 'backups.schedule.weekly' }))
+    expect(dirty()).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'backups.schedule.off' }))
+    expect(dirty()).toBe(false)
+
+    fireEvent.change(screen.getByLabelText(/retention\.countLabel/), { target: { value: '5' } })
+    expect(dirty()).toBe(true)
+    fireEvent.change(screen.getByLabelText(/retention\.countLabel/), { target: { value: '0' } })
+    expect(dirty()).toBe(false)
+
+    fireEvent.change(screen.getByLabelText(/location\.title/), { target: { value: '/elsewhere' } })
+    expect(dirty()).toBe(true)
+    fireEvent.click(saveButton())
+    await screen.findByText('backups.schedule.saved')
+    expect(dirty()).toBe(false)
+
+    unmount()
+    expect(set).toHaveBeenLastCalledWith('backup-schedule', false)
   })
 
   describe('env-locked fields', () => {

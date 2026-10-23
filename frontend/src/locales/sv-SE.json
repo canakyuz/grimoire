@@ -98,7 +98,9 @@
     "versions": "Versioner",
     "clearSearch": "Rensa sökning",
     "removeLink": "Ta bort länk",
-    "newBadge": "Ny"
+    "newBadge": "Ny",
+    "dismissError": "Stäng felmeddelandet",
+    "confirm": "Bekräfta"
   },
   "login": {
     "username": "Användarnamn",
@@ -465,7 +467,7 @@
     "archiveFolder": "{{folder}} (taggad ”{{tag}}”)"
   },
   "files": {
-    "title": "Filhanterare för biblioteket",
+    "title": "Filhanterare",
     "sectionDescription": "Flytta, byt namn på och organisera filerna i ditt bibliotek utan att lämna Grimoire. Bevarar varje objekts taggar, favoriter, läsförlopp och kampanjlänkar.",
     "open": "Öppna filhanteraren",
     "description": "Flytta, byt namn på och organisera ditt bibliotek. Expandera mappar på plats och dra objekt till valfri mapp för att flytta dem - taggar, favoriter, förlopp och kampanjlänkar följer med filen. Ändringar tillämpas direkt på disken.",
@@ -713,8 +715,8 @@
       "createLink": "Skapa delningslänk",
       "linkHint": "OTFBM hämtar bakgrunden från länken varje gång kartan ritas, så din Grimoire-server måste kunna nås från internet.",
       "linkLabel": "OTFBM-bakgrund ({{cell}} px)",
-      "linkUntil": "Använder din delningslänk, som går ut {{when}}. Hantera den under Inställningar → Konto → Delning.",
-      "linkForever": "Använder din delningslänk, som aldrig går ut. Hantera den under Inställningar → Konto → Delning.",
+      "linkUntil": "Använder din delningslänk, som går ut {{when}}. Hantera den under Inställningar → Anslutningar.",
+      "linkForever": "Använder din delningslänk, som aldrig går ut. Hantera den under Inställningar → Anslutningar.",
       "selfHost": "Eller lägg upp den själv:"
     },
     "vtt": {
@@ -1025,20 +1027,209 @@
   },
   "settings": {
     "title": "Inställningar",
-    "tabs": {
-      "account": "Konto",
-      "users": "Användare",
-      "authentication": "Autentisering",
-      "application": "Program",
-      "maintenance": "Underhåll",
-      "logs": "Loggar",
-      "metadata": "Metadata",
-      "addons": "Tillägg"
-    },
     "quickActions": {
       "label": "Snabbåtgärder",
       "rescan": "Skanna om",
       "fileManager": "Filhanterare"
+    },
+    "nav": {
+      "label": "Inställningsområden"
+    },
+    "scopes": {
+      "you": "Du",
+      "server": "Server"
+    },
+    "areas": {
+      "account": {
+        "title": "Konto",
+        "description": "Ditt namn och din e-post, ditt lösenord och inloggade enheter, samt radering av ditt konto."
+      },
+      "preferences": {
+        "title": "Preferenser",
+        "description": "Språk, tema och hur böcker och biblioteket öppnas för dig."
+      },
+      "connections": {
+        "title": "Anslutningar",
+        "description": "Läsappar, API-nycklar och delningslänkar - vägarna in i ditt bibliotek utanför Grimoire."
+      },
+      "overview": {
+        "title": "Översikt",
+        "description": "Hur servern mår, i en överblick. Varje rad länkar till inställningarna bakom den."
+      },
+      "people": {
+        "title": "Personer",
+        "description": "Konton på den här servern, deras roller och behörigheter, och gästerna som spelledare har bjudit in."
+      },
+      "access": {
+        "title": "Åtkomst & delning",
+        "description": "Vad personer får nå på hela servern: delningslänkar per roll, begränsade kategorier, kampanjuppladdningar och API-nycklar."
+      },
+      "sign-in": {
+        "title": "Inloggning",
+        "description": "Hur personer loggar in: lösenord, enkel inloggning (SSO), gästkoder och meddelandet på inloggningssidan."
+      },
+      "library": {
+        "title": "Bibliotek",
+        "description": "Skanning av biblioteksmappen, hur filer och mappar läses, och verktygen för att städa upp dem."
+      },
+      "catalogue": {
+        "title": "Metadata",
+        "description": "Var bok- och systemdetaljer kommer ifrån - Grimoire Codex DB och listorna som redigerarna erbjuder - och sidofilerna som skrivs bredvid dina böcker."
+      },
+      "addons": {
+        "title": "Tillägg",
+        "description": "Communitytillägg - metadataskrapare, rollpersonsimportörer, teman - och innehållspaketen som installerats från dem."
+      },
+      "sidebar": {
+        "title": "Sidofält",
+        "description": "Vilka avsnitt och vilken statistik sidofältet visar för alla."
+      },
+      "backups": {
+        "title": "Säkerhetskopior",
+        "description": "Säkerhetskopiera databasen och Grimoires egna filer manuellt eller enligt schema, och ladda ner eller ta bort gamla säkerhetskopior."
+      },
+      "logs": {
+        "title": "Loggar",
+        "description": "Vad servern har gjort, live, filtrerat på nivå, användare eller text."
+      }
+    },
+    "groups": {
+      "profile": "Profil",
+      "security": "Lösenord & sessioner",
+      "securityDesc": "Byt lösenord och se vilka enheter som är inloggade.",
+      "look": "Språk & tema",
+      "reading": "Läsning & bläddring",
+      "readingDesc": "Hur böcker öppnas, hur biblioteket listar saker och vilket innehåll du ser.",
+      "scanning": "Skanning",
+      "filesAndFolders": "Filer & mappar",
+      "filesAndFoldersDesc": "Hur Grimoire läser ut kategorier, titlar och versioner från hur ditt bibliotek är uppbyggt.",
+      "tools": "Biblioteksverktyg",
+      "sidecars": "Sidofiler"
+    },
+    "entries": {
+      "theme": "Tema",
+      "themeDesc": "Ljust eller mörkt, och vilket tema - inklusive communityteman.",
+      "apiKeysDesc": "Låt skript och appar använda Grimoire som du, utan ditt lösenord.",
+      "users": "Användare",
+      "usersDesc": "Lägg till konton, ändra roller och behörigheter, och ange lösenord.",
+      "guestsDesc": "Konton med enbart kod som spelledare har bjudit in till sina kampanjer. Konvertera, slå ihop eller ta bort dem.",
+      "shareLinkRoles": "Delningslänkar per roll",
+      "fileManager": "Filhanterare",
+      "fileManagerDesc": "Flytta, byt namn på och organisera om filerna i ditt bibliotek.",
+      "contentPacksDesc": "Rollpersonsinnehåll installerat från tillägg - klasser, besvärjelser, föremål. Ta bort ett paket för att avinstallera det."
+    },
+    "dangerZone": "Riskzon",
+    "search": {
+      "label": "Sök i inställningar",
+      "placeholder": "Hitta en inställning",
+      "clear": "Rensa sökning",
+      "noResults": "Inget matchar ”{{query}}”.",
+      "resultCount_one": "{{count}} inställning hittades",
+      "resultCount_other": "{{count}} inställningar hittades"
+    },
+    "unsaved": {
+      "title": "Lämna utan att spara?",
+      "message": "Den här sidan har ändringar som du inte har sparat. Om du lämnar nu kastas de.",
+      "leave": "Kasta ändringar"
+    },
+    "overview": {
+      "open": "Öppna",
+      "unavailable": "Det gick inte att läsa in.",
+      "library": {
+        "watching": "Bevakar ändringar",
+        "notWatching": "Bevakar inte ändringar",
+        "schedule": "Schemalagd omskanning: {{interval}}, kl. {{time}}",
+        "noSchedule": "Ingen schemalagd omskanning",
+        "watchUnavailable": "Bevakningen fungerar inte - öppna Bibliotek för att se varför"
+      },
+      "backups": {
+        "last": "Senaste säkerhetskopia {{when}}",
+        "none": "Inga säkerhetskopior ännu",
+        "kept_one": "{{count}} säkerhetskopia sparad",
+        "kept_other": "{{count}} säkerhetskopior sparade",
+        "scheduled": "Automatiskt: {{interval}}",
+        "manual": "Endast manuellt"
+      },
+      "signIn": {
+        "both": "Lösenord och enkel inloggning",
+        "ssoOnly": "Endast enkel inloggning",
+        "passwordOnly": "Endast lösenord",
+        "guestsOn": "Gästkoder tillåtna",
+        "guestsOff": "Gästkoder av",
+        "ssoIncomplete": "Enkel inloggning är på men inte helt konfigurerad"
+      },
+      "people": {
+        "users_one": "{{count}} användare",
+        "users_other": "{{count}} användare",
+        "guests_one": "{{count}} gäst",
+        "guests_other": "{{count}} gäster"
+      },
+      "addons": {
+        "installed_one": "{{count}} tillägg installerat",
+        "installed_other": "{{count}} tillägg installerade",
+        "updates_one": "{{count}} uppdatering tillgänglig",
+        "updates_other": "{{count}} uppdateringar tillgängliga"
+      },
+      "codex": {
+        "connected": "Ansluten"
+      }
+    },
+    "keywords": {
+      "account": "profil, användare, jag, konto",
+      "display-name": "namn, smeknamn, användarnamn, visningsnamn",
+      "email": "e-post, mejl, mail, adress",
+      "change-password": "lösenord, återställ, byt",
+      "sessions": "enheter, logga ut, utloggning, inloggad",
+      "delete-account": "ta bort, radera, stäng konto",
+      "language": "språk, översättning, engelska, tyska, franska, spanska, svenska",
+      "theme": "mörkt läge, ljust läge, dark mode, färger, utseende, skin",
+      "reader": "läsare, visare, pdf, rulla, sida",
+      "library-browsing": "sortera, rutnät, lista, standardvy",
+      "content-preferences": "explicit, nsfw, vuxen, vuxeninnehåll",
+      "opds": "e-läsare, e-reader, kavita, panels, chunky, flöde, feed, e-bok",
+      "api-keys": "token, integration, homepage, skript",
+      "share-links": "offentlig länk, dela, delning",
+      "users": "konton, roller, behörigheter, admin, spelledare, gm, spelare, lägg till användare",
+      "guests": "inbjudningskoder, slå ihop, gäster",
+      "share-link-roles": "behörigheter, delning",
+      "category-access": "begränsa, explicit, behörigheter, dölj kategori",
+      "campaign-uploads": "uppladdningsgränser, kvot, filstorlek",
+      "all-api-keys": "tokens, återkalla",
+      "password-sign-in": "logga in, inloggning, lokala konton",
+      "oidc": "sso, enkel inloggning, single sign-on, openid, keycloak, authentik, authelia, google, inloggningsknapp",
+      "guest-access": "inbjudningskoder, gäster",
+      "login-message": "inloggningssida, banner, meddelande, villkor",
+      "rescan": "skanna, skanna om, indexera, uppdatera",
+      "watch": "automatisk, filbevakning, bevaka, inotify, nfs, smb",
+      "scheduled-rescan": "schema, schemalagd, nattlig",
+      "folder-category": "kategori, grundregelböcker, tillägg, mappar",
+      "folder-naming": "filnamn, titel, mönster",
+      "variant-rules": "rutnätsfri, utskriftsvänlig, versioner",
+      "file-manager": "flytta, byt namn, organisera",
+      "duplicates": "kopior, dubbletter, slå ihop",
+      "cleanup": "saknade filer, ta bort, rensa, databas",
+      "genres": "taggar, genrer, värdelista",
+      "system-families": "systemfamiljer, värdelista",
+      "parent-systems": "värdelista, utgåva",
+      "licenses": "ogl, creative commons, orc, licenser, värdelista",
+      "dice-materials": "tärningar, material, värdelista",
+      "sidecars": "opf, nfo, json, yaml, export, metadatafiler, sidecar",
+      "codex": "metadatakälla",
+      "community-addons": "skrapare, scrapers, importörer, plugins, tillägg, källor, teman",
+      "content-packs": "klasser, besvärjelser, rollpersoner",
+      "sidebar-visibility": "dölj, meny, navigering",
+      "sidebar-stats": "statistik, antal, sidfot",
+      "backup-list": "säkerhetskopia, backup, återställ, ladda ner, zip",
+      "backup-schedule": "automatisk säkerhetskopiering, lagringstid, lagring",
+      "logs": "felsökning, debug, fel",
+      "overview": "status, översikt, dashboard"
+    },
+    "save": {
+      "failed": "Inte sparat - {{message}}",
+      "offline": "Inte sparat - det gick inte att nå servern. Kontrollera din anslutning och försök igen.",
+      "loadFailed": "Det gick inte att läsa in de här inställningarna - {{message}}",
+      "loadOffline": "Det gick inte att läsa in de här inställningarna - det gick inte att nå servern. Kontrollera din anslutning och försök igen.",
+      "retry": "Försök igen"
     }
   },
   "authSettings": {
@@ -1052,7 +1243,12 @@
       "title": "Lösenordsautentisering",
       "description": "Tillåt användare att logga in med användarnamn och lösenord. Om du inaktiverar det här förhindras alla lösenordsinloggningar.",
       "enable": "Aktivera lösenordsautentisering",
-      "envLocked": "Låst av miljövariabeln ALLOW_PASSWORD_AUTHENTICATION (nuvarande värde: {{value}})."
+      "envLocked": "Låst av miljövariabeln ALLOW_PASSWORD_AUTHENTICATION (nuvarande värde: {{value}}).",
+      "confirmOffTitle": "Stänga av inloggning med lösenord?",
+      "confirmOffMessage": "Alla, även administratörer, måste då logga in med enkel inloggning. Om enkel inloggning slutar fungera kan du sätta miljövariabeln ALLOW_PASSWORD_AUTHENTICATION till true och starta om Grimoire för att slå på inloggning med lösenord igen.",
+      "confirmOff": "Stäng av inloggning med lösenord",
+      "needsOidc": "Inloggning med lösenord kan inte stängas av förrän enkel inloggning är konfigurerad - annars skulle ingen kunna logga in.",
+      "setUpOidc": "Konfigurera enkel inloggning först"
     },
     "oidc": {
       "title": "OpenID Connect-autentisering",
@@ -1089,7 +1285,6 @@
       "signingAlgUnsupportedHint": "Den här algoritmen kan inte verifiera leverantörens inloggningar, så enkel inloggning misslyckas tills du väljer någon av de listade algoritmerna - oftast RS256.",
       "buttonText": "Knapptext",
       "buttonTextHint": "Vad SSO-knappen på inloggningsskärmen kommer att säga.",
-      "buttonAppearance": "Knappens utseende",
       "buttonAppearanceHint": "Få knappen att likna leverantörens officiella inloggningsknapp: ladda upp dess logotyp och kopiera färgerna från dess varumärkesriktlinjer. Lämna ett fält tomt för att behålla temats utseende.",
       "buttonPreview": "Förhandsvisning av knappen",
       "buttonBgColor": "Bakgrundsfärg",
@@ -1124,7 +1319,16 @@
       "autoLaunchHint": "Omdirigera automatiskt till IdP:n vid besök på inloggningssidan. Lägg till ?autoLaunch=0 för att kringgå.",
       "autoRegister": "Automatisk registrering",
       "autoRegisterHint": "Skapa automatiskt nya lokala konton vid första OIDC-inloggningen. Utan det här måste användare redan finnas lokalt.",
-      "saveFailed": "Kunde inte spara."
+      "saveFailed": "Kunde inte spara.",
+      "copied": "Kopierat",
+      "notConfigured": "Enkel inloggning fungerar inte förrän utfärdar-URL, klient-ID och klienthemlighet är angivna.",
+      "groups": {
+        "provider": "Leverantör",
+        "client": "Klient",
+        "loginButton": "Inloggningsknapp",
+        "roles": "Roller & behörigheter",
+        "behaviour": "Beteende"
+      }
     },
     "guestAccess": {
       "title": "Gäståtkomst",
@@ -1556,7 +1760,7 @@
       "listLabel": "Delningslänkar",
       "none": "Inga delningslänkar.",
       "rolesTitle": "Delningslänkar",
-      "rolesHint": "Vem som som standard får skapa offentliga delningslänkar. En användares egen inställning i tabellen går före.",
+      "rolesHint": "Vem som som standard får skapa offentliga delningslänkar. En persons egen inställning, under Personer, går före.",
       "disabled": "Delningslänkar är avstängda på den här servern (SHARE_LINKS_ENABLED=false).",
       "adminAlways": "Administratörer kan alltid skapa delningslänkar",
       "rolesFailed": "Det gick inte att uppdatera standardinställningarna för delningslänkar.",
@@ -1673,8 +1877,7 @@
     },
     "cleanup": {
       "title": "Databasstädning",
-      "description": "Skannar databasen efter böcker, kartor och tokens vars filer inte längre finns kvar på disken och tar bort deras poster. Detta kan inte ångras!",
-      "button": "Ta bort saknade filer",
+      "description": "Hittar böcker, kartor, tokens, ljud och 3D-modeller vars filer inte längre finns på disken och visar vad den hittade. Deras poster tas bort först när du bekräftar. Detta kan inte ångras - en omskanning lägger bara tillbaka filer som finns på disken.",
       "cleaning": "Städar…",
       "nothingToRemove": "Inget att ta bort - databasen stämmer.",
       "removed_one": "Tog bort {{count}} post.",
@@ -1685,7 +1888,24 @@
       "maps_other": "{{count}} kartor",
       "tokens_one": "{{count}} token",
       "tokens_other": "{{count}} tokens",
-      "failed": "Städningen misslyckades. Kontrollera serverloggarna."
+      "failed": "Städningen misslyckades. Kontrollera serverloggarna.",
+      "find": "Hitta saknade filer…",
+      "checking": "Kontrollerar…",
+      "allPresent": "Alla poster har fortfarande sin fil. Inget att ta bort.",
+      "unavailableTitle": "Biblioteksmappen saknas eller är tom",
+      "unavailableBody": "Den kanske inte är monterad. Inget togs bort - kontrollera biblioteksmappen och försök sedan igen.",
+      "confirmTitle": "Ta bort poster för saknade filer?",
+      "confirmMessage": "De här posterna pekar på filer som inte längre finns på disken. Borttagningen kan inte ångras, och deras taggar, favoriter och läsförlopp försvinner också.",
+      "confirmButton_one": "Ta bort {{count}} post",
+      "confirmButton_other": "Ta bort {{count}} poster",
+      "ofTotal": "(av {{total}})",
+      "wholeKindWarning": "För minst en typ saknar varje post sin fil. Om en del av biblioteket inte är monterad, avbryt och kontrollera det först.",
+      "audio_one": "{{count}} ljudfil",
+      "audio_other": "{{count}} ljudfiler",
+      "models_one": "{{count}} 3D-modell",
+      "models_other": "{{count}} 3D-modeller",
+      "offline": "Det gick inte att nå servern. Kontrollera din anslutning och försök igen.",
+      "failedWithReason": "Städningen misslyckades - {{message}}"
     },
     "sidecars": {
       "title": "Metadatafiler",
@@ -3250,7 +3470,7 @@
       "dark": "Mörkt",
       "system": "System"
     },
-    "yourThemes": "Tema",
+    "yourThemes": "Installerade teman",
     "community": "Community",
     "browse": "Bläddra bland community-teman",
     "import": "Importera ett tema",
@@ -3741,7 +3961,9 @@
     "confirmUninstall": "Avinstallera \"{{name}}\" från den här servern? Rollpersoner behåller sina referenser och visar dem som ej installerade tills det kommer tillbaka. Regeluppsättningar som importerade det behåller sin egen kopia.",
     "installedHelp": "Installerade för alla på servern. Varje rollperson med ett matchande formulär kan använda ett pakets innehåll direkt.",
     "emptyInstalled": "Inga innehållspaket installerade än. Bläddra bland innehållspaketen för att lägga till ett.",
-    "forSheet": "För {{sheet}}"
+    "forSheet": "För {{sheet}}",
+    "confirmUninstallTitle": "Avinstallera innehållspaket?",
+    "uninstallConfirm": "Avinstallera"
   },
   "codex": {
     "settings": {

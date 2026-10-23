@@ -252,6 +252,7 @@ def _oidc_to_typed(raw: dict) -> dict:
         "oidc_button_icon_url": oidc_button_icon_url(raw),
         "oidc_client_secret_set": bool(secret),
         "oidc_client_secret_length": len(secret) if secret else 0,
+        "oidc_configured": oidc_is_configured(raw),
         **locks,
     }
 

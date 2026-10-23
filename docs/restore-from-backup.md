@@ -127,7 +127,7 @@ docker compose logs -f
 Schema migrations run automatically on startup, so restoring a backup taken by an older
 version is fine - Grimoire brings the database forward to the current schema itself.
 
-Once it is up, trigger a **Rescan** from the sidebar (or **Settings → Maintenance**). The
+Once it is up, trigger a **Rescan** from the sidebar (or **Settings → Library**). The
 restored database describes your library as it was when the backup was taken; a rescan
 reconciles it with whatever is actually on disk now, picking up files added since and
 marking any that have gone.

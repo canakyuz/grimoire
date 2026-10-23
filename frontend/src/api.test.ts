@@ -11,6 +11,7 @@ import api, {
   naming,
   sidecars,
   backups,
+  maintenance,
   auth,
   opds,
   settings,
@@ -1060,6 +1061,13 @@ describe('files, sidecars, and backups helpers', () => {
     expect(url()).toBe('/api/maintenance/sidecars/settings')
     await sidecars.export()
     expect(url()).toBe('/api/maintenance/sidecars/export')
+
+    await maintenance.cleanupPreview()
+    expect(url()).toBe('/api/maintenance/cleanup-missing/preview')
+    await maintenance.cleanupMissing()
+    expect(url()).toBe('/api/maintenance/cleanup-missing?force=false')
+    await maintenance.cleanupMissing(true)
+    expect(url()).toBe('/api/maintenance/cleanup-missing?force=true')
 
     await backups.list()
     expect(url()).toBe('/api/backups')

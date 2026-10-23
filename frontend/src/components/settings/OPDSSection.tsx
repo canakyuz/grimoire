@@ -61,86 +61,42 @@ export default function OPDSSection() {
   if (status && !status.opds_enabled) return null
 
   return (
-    <>
-      <div style={{ borderTop: '1px solid var(--border)' }} />
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>
-          {t('userSettings.opds.title')}
-        </h3>
-        <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
-          {t('userSettings.opds.description')}
-        </p>
+    <div>
+      <h3 style={{ marginBottom: 6 }}>{t('userSettings.opds.title')}</h3>
+      <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
+        {t('userSettings.opds.description')}
+      </p>
 
-        {status === null ? (
-          <Spinner size={16} />
-        ) : !status.has_token ? (
-          <button
-            onClick={handleGenerate}
-            disabled={working}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 18px',
-              borderRadius: 6,
-              fontSize: 14,
-              fontWeight: 500,
-              background: 'var(--gold-dim)',
-              border: 'none',
-              color: 'var(--bg-deep)',
-              cursor: working ? 'default' : 'pointer',
-              opacity: working ? 0.6 : 1,
-            }}
-          >
-            {working && <Spinner size={13} />}
-            {working ? t('userSettings.opds.generating') : t('userSettings.opds.enable')}
-          </button>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {feeds.length > 1 && (
-              <div>
-                <label
-                  htmlFor="opds-feed-version"
-                  style={{
-                    display: 'block',
-                    fontSize: 13,
-                    color: 'var(--text-dim)',
-                    marginBottom: 5,
-                  }}
-                >
-                  {t('userSettings.opds.version')}
-                </label>
-                <select
-                  id="opds-feed-version"
-                  value={selected?.version}
-                  onChange={(e) => setVersion(e.target.value)}
-                  style={{
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--text)',
-                    borderRadius: 6,
-                    padding: '6px 10px',
-                    fontSize: 13,
-                  }}
-                >
-                  {feeds.map((f) => (
-                    <option key={f.version} value={f.version}>
-                      {t(`userSettings.opds.versions.${f.version}`, { defaultValue: f.version })}
-                    </option>
-                  ))}
-                </select>
-                <p
-                  style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6, lineHeight: 1.5 }}
-                >
-                  {t(`userSettings.opds.versionHints.${selected?.version}`, { defaultValue: '' })}
-                </p>
-              </div>
-            )}
-
-            {/* Feed URL display */}
+      {status === null ? (
+        <Spinner size={16} />
+      ) : !status.has_token ? (
+        <button
+          onClick={handleGenerate}
+          disabled={working}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 18px',
+            borderRadius: 6,
+            fontSize: 14,
+            fontWeight: 500,
+            background: 'var(--gold-dim)',
+            border: 'none',
+            color: 'var(--bg-deep)',
+            cursor: working ? 'default' : 'pointer',
+            opacity: working ? 0.6 : 1,
+          }}
+        >
+          {working && <Spinner size={13} />}
+          {working ? t('userSettings.opds.generating') : t('userSettings.opds.enable')}
+        </button>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {feeds.length > 1 && (
             <div>
               <label
-                htmlFor="opds-feed-url"
+                htmlFor="opds-feed-version"
                 style={{
                   display: 'block',
                   fontSize: 13,
@@ -148,149 +104,186 @@ export default function OPDSSection() {
                   marginBottom: 5,
                 }}
               >
-                {t('userSettings.opds.feedUrl')}
+                {t('userSettings.opds.version')}
               </label>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <input
-                  id="opds-feed-url"
-                  readOnly
-                  value={feedUrl}
-                  style={{
-                    flex: 1,
-                    minWidth: 200,
-                    fontSize: 13,
-                    padding: '7px 10px',
-                    boxSizing: 'border-box',
-                    color: 'var(--text-dim)',
-                  }}
-                  onFocus={(e) => e.currentTarget.select()}
-                />
-                <button
-                  onClick={handleCopy}
-                  title={t('userSettings.opds.copy')}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '7px 12px',
-                    borderRadius: 6,
-                    fontSize: 13,
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
-                    color: copied ? 'var(--green)' : 'var(--text-dim)',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {copied ? (
-                    <>
-                      <LuCircleCheck size={14} /> {t('userSettings.opds.copied')}
-                    </>
-                  ) : (
-                    <>
-                      <LuCopy size={14} /> {t('userSettings.opds.copy')}
-                    </>
-                  )}
-                </button>
-              </div>
+              <select
+                id="opds-feed-version"
+                value={selected?.version}
+                onChange={(e) => setVersion(e.target.value)}
+                style={{
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  borderRadius: 6,
+                  padding: '6px 10px',
+                  fontSize: 13,
+                }}
+              >
+                {feeds.map((f) => (
+                  <option key={f.version} value={f.version}>
+                    {t(`userSettings.opds.versions.${f.version}`, { defaultValue: f.version })}
+                  </option>
+                ))}
+              </select>
+              <p style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6, lineHeight: 1.5 }}>
+                {t(`userSettings.opds.versionHints.${selected?.version}`, { defaultValue: '' })}
+              </p>
             </div>
+          )}
 
-            {/* Actions */}
-            {!confirming ? (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {/* Feed URL display */}
+          <div>
+            <label
+              htmlFor="opds-feed-url"
+              style={{
+                display: 'block',
+                fontSize: 13,
+                color: 'var(--text-dim)',
+                marginBottom: 5,
+              }}
+            >
+              {t('userSettings.opds.feedUrl')}
+            </label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                id="opds-feed-url"
+                readOnly
+                value={feedUrl}
+                style={{
+                  flex: 1,
+                  minWidth: 200,
+                  fontSize: 13,
+                  padding: '7px 10px',
+                  boxSizing: 'border-box',
+                  color: 'var(--text-dim)',
+                }}
+                onFocus={(e) => e.currentTarget.select()}
+              />
+              <button
+                onClick={handleCopy}
+                title={t('userSettings.opds.copy')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 12px',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  color: copied ? 'var(--green)' : 'var(--text-dim)',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {copied ? (
+                  <>
+                    <LuCircleCheck size={14} /> {t('userSettings.opds.copied')}
+                  </>
+                ) : (
+                  <>
+                    <LuCopy size={14} /> {t('userSettings.opds.copy')}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Actions */}
+          {!confirming ? (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                onClick={handleGenerate}
+                disabled={working}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 14px',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  background: 'var(--gold-dim)',
+                  border: 'none',
+                  color: 'var(--bg-deep)',
+                  cursor: working ? 'default' : 'pointer',
+                  opacity: working ? 0.6 : 1,
+                }}
+              >
+                {working && <Spinner size={12} />}
+                {t('userSettings.opds.regenerate')}
+              </button>
+              <button
+                onClick={() => setConfirming(true)}
+                disabled={working}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  background: 'rgba(180,60,60,0.12)',
+                  border: '1px solid rgba(180,60,60,0.4)',
+                  color: 'var(--danger)',
+                  cursor: 'pointer',
+                }}
+              >
+                {t('userSettings.opds.disable')}
+              </button>
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: '14px 16px',
+                borderRadius: 8,
+                background: 'rgba(180,60,60,0.08)',
+                border: '1px solid rgba(180,60,60,0.4)',
+                maxWidth: 420,
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 10 }}>
+                {t('userSettings.opds.confirmRevoke')}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
                 <button
-                  onClick={handleGenerate}
+                  onClick={handleRevoke}
                   disabled={working}
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
                     padding: '7px 14px',
                     borderRadius: 6,
                     fontSize: 13,
                     fontWeight: 500,
-                    background: 'var(--gold-dim)',
+                    background: 'var(--danger-fill)',
                     border: 'none',
-                    color: 'var(--bg-deep)',
+                    color: 'var(--on-danger)',
                     cursor: working ? 'default' : 'pointer',
                     opacity: working ? 0.6 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
                   }}
                 >
                   {working && <Spinner size={12} />}
-                  {t('userSettings.opds.regenerate')}
+                  {t('userSettings.opds.confirmDisable')}
                 </button>
                 <button
-                  onClick={() => setConfirming(true)}
+                  onClick={() => setConfirming(false)}
                   disabled={working}
                   style={{
                     padding: '7px 14px',
                     borderRadius: 6,
                     fontSize: 13,
-                    background: 'rgba(180,60,60,0.12)',
-                    border: '1px solid rgba(180,60,60,0.4)',
-                    color: 'var(--danger)',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-dim)',
                     cursor: 'pointer',
                   }}
                 >
-                  {t('userSettings.opds.disable')}
+                  {t('common.cancel')}
                 </button>
               </div>
-            ) : (
-              <div
-                style={{
-                  padding: '14px 16px',
-                  borderRadius: 8,
-                  background: 'rgba(180,60,60,0.08)',
-                  border: '1px solid rgba(180,60,60,0.4)',
-                  maxWidth: 420,
-                }}
-              >
-                <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 10 }}>
-                  {t('userSettings.opds.confirmRevoke')}
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={handleRevoke}
-                    disabled={working}
-                    style={{
-                      padding: '7px 14px',
-                      borderRadius: 6,
-                      fontSize: 13,
-                      fontWeight: 500,
-                      background: 'var(--danger-fill)',
-                      border: 'none',
-                      color: 'var(--on-danger)',
-                      cursor: working ? 'default' : 'pointer',
-                      opacity: working ? 0.6 : 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    {working && <Spinner size={12} />}
-                    {t('userSettings.opds.confirmDisable')}
-                  </button>
-                  <button
-                    onClick={() => setConfirming(false)}
-                    disabled={working}
-                    style={{
-                      padding: '7px 14px',
-                      borderRadius: 6,
-                      fontSize: 13,
-                      background: 'var(--bg-card)',
-                      border: '1px solid var(--border)',
-                      color: 'var(--text-dim)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {t('common.cancel')}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

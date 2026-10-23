@@ -254,7 +254,7 @@ class TestScanOwners:
 class TestOtherGuards:
     """Jobs that refuse to run during a scan no longer refuse over a stuck one."""
 
-    def test_cleanup_proceeds_over_a_stuck_scan(self, client, admin_headers):
+    def test_cleanup_proceeds_over_a_stuck_scan(self, client, admin_headers, library_mounted):
         _stuck()
         resp = client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
         assert resp.status_code == 200

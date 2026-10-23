@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import OIDCButtonAppearance from './OIDCButtonAppearance'
 import { settings as settingsApi } from '../../api'
+import { SettingsDirtyContext } from './settingsDirty'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k, o) => (o?.field ? `${k}:${o.field}` : k) }),
@@ -37,6 +38,32 @@ const previewButton = () => screen.getByRole('button', { name: 'Sign in with Goo
 beforeEach(() => vi.clearAllMocks())
 
 describe('OIDCButtonAppearance', () => {
+  it('is the Login button block of the OIDC form', () => {
+    setup()
+    expect(
+      screen.getByRole('heading', { level: 4, name: 'authSettings.oidc.groups.loginButton' })
+    ).toBeInTheDocument()
+  })
+
+  it('reports a typed-but-unsaved change and announces the save', async () => {
+    const set = vi.fn()
+    const dirty = () => set.mock.calls.filter(([id]) => id === 'oidc-button').at(-1)?.[1]
+    settingsApi.patch.mockResolvedValue(baseData({ oidc_button_radius: '12' }))
+    render(
+      <SettingsDirtyContext.Provider value={{ set }}>
+        <OIDCButtonAppearance data={baseData()} onSaved={vi.fn()} />
+      </SettingsDirtyContext.Provider>
+    )
+    expect(dirty()).toBe(false)
+    const radius = screen.getByLabelText('authSettings.oidc.buttonRadius')
+    await userEvent.type(radius, '12')
+    expect(dirty()).toBe(true)
+    await userEvent.tab()
+    expect(
+      await screen.findByText('common.saved', { selector: '.visually-hidden' })
+    ).toBeInTheDocument()
+  })
+
   it('seeds the fields from the server and previews them', () => {
     setup({ oidc_button_bg_color: '#131314', oidc_button_radius: '20' })
     expect(screen.getByLabelText('authSettings.oidc.buttonBgColor').value).toBe('#131314')

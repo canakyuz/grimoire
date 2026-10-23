@@ -2,9 +2,15 @@
 from fastapi import APIRouter
 
 from ._helpers import run_cleanup_sync  # re-exported for the scheduler
-from ._schemas import CleanupResponse, SidecarExportResponse, SidecarSettings
+from ._schemas import (
+    CleanupPreviewResponse,
+    CleanupResponse,
+    SidecarExportResponse,
+    SidecarSettings,
+)
 from .core import (
     cleanup_missing,
+    cleanup_missing_preview,
     export_sidecars,
     get_sidecar_settings,
     update_sidecar_settings,
@@ -21,6 +27,14 @@ router.add_api_route(
     tags=["library"],
     summary="Remove DB entries for missing files",
     response_model=CleanupResponse,
+)
+router.add_api_route(
+    "/cleanup-missing/preview",
+    cleanup_missing_preview,
+    methods=["GET"],
+    tags=["library"],
+    summary="Preview which DB entries a cleanup would remove",
+    response_model=CleanupPreviewResponse,
 )
 router.add_api_route(
     "/sidecars/settings",

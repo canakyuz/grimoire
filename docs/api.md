@@ -90,14 +90,14 @@ run exactly as for the owner's session, and use the owner's *current* role, so a
 demoted user's keys lose what the demotion took away. Keys are deleted with
 their owner.
 
-Users create keys under **Settings → Account → Security → API Keys** (or through
+Users create keys under **Settings → Connections → API Keys** (or through
 [`/api/api-keys`](#api-keys-1)). Who may:
 
 - **The instance** - API keys are on unless `API_KEYS_ENABLED=false`, which turns
   them off for everyone, admins included: every key is refused, every
   `/api/api-keys` endpoint returns `403`, and the UI hides the key menus.
 - **Each user** - admins always may. Anyone else only once an admin ticks
-  **API keys** on their row in **Settings → Users** (`api_keys_enabled`, off by
+  **API keys** on their row in **Settings → People** (`api_keys_enabled`, off by
   default), or the OIDC [permissions claim](oidc.md) grants `apiKeys`. Taking it
   away stops that user's existing keys (`403`) without deleting them.
 - **Guests** never hold keys.
@@ -367,7 +367,7 @@ Each version's links stay inside that version, so a reader subscribed to v1 sees
 ```
 
 To surface library counts on an external dashboard, create an [API key](#api-keys)
-under **Settings → Account → Security → API Keys** with **Statistics: Read** and
+under **Settings → Connections → API Keys** with **Statistics: Read** and
 nothing else. The counts are the key owner's, so an admin's key sees the whole
 library. The key is shown once, when you create it; regenerate or revoke it there
 at any time.
@@ -1822,7 +1822,7 @@ than appearing and failing.
 | `show_stat_audio` | bool | Show/hide audio track count in sidebar (default off) |
 | `show_stat_size` | bool | Show/hide library size in sidebar |
 | `show_stat_version` | bool | Show/hide version in sidebar |
-| `password_auth_enabled` | bool | Allow password sign-in. Cannot be patched if `ALLOW_PASSWORD_AUTHENTICATION` is set in the environment (returns 400). The `password_auth_env_locked` field on the GET response indicates whether the env override is active. |
+| `password_auth_enabled` | bool | Allow password sign-in. Cannot be patched if `ALLOW_PASSWORD_AUTHENTICATION` is set in the environment (returns 400). The `password_auth_env_locked` field on the GET response indicates whether the env override is active. Turning it off returns 400 unless single sign-on is configured (`oidc_configured`, judged on the settings as the same patch leaves them) - see [Sign-in lock-out guard](#sign-in-lock-out-guard). |
 | `guest_access_enabled` | bool | Allow GMs/admins to create guest invite codes. Cannot be patched if `GUEST_ACCESS_ENABLED` is set in the environment (returns 400). The `guest_access_env_locked` field on the GET response indicates whether the env override is active. |
 | `share_links_role_gm` | bool | Whether GMs may create [share links](#share-links-1) without a per-user override. Default `true`. Admins always may. |
 | `share_links_role_player` | bool | Whether players may create share links without a per-user override. Default `false`. |
@@ -1854,6 +1854,17 @@ than appearing and failing.
 | `oidc_auto_register` | bool | Auto-create local accounts on first OIDC login. |
 
 GET responses also include a sibling `<key>_env_locked: bool` for each individual OIDC setting, indicating whether the value is pinned by an environment variable. Patching a locked field returns 400. The fixed callback URL is exposed as `oidc_redirect_uri`, and the current button icon (set through `/api/settings/oidc-button-icon`, or pinned by `OIDC_BUTTON_ICON`) as `oidc_button_icon_url` (`""` when there is none).
+
+GET and PATCH responses also carry `oidc_configured: bool` - true when OIDC is enabled and has the issuer URL, client id and client secret a sign-in needs (environment values count). It is the same test the login page uses to decide whether to show the SSO button.
+
+#### Sign-in lock-out guard
+
+`PATCH /api/settings` refuses a change that would leave no way to sign in, with a 400 and nothing from that patch saved:
+
+- Turning `password_auth_enabled` off while OIDC is not configured: `"Set up single sign-on (OIDC) before turning off password sign-in - otherwise no one could sign in."` Setting up OIDC and turning passwords off in the same patch is allowed.
+- Turning OIDC off (`oidc_enabled: false`, or clearing a field it needs) while password sign-in is off: `"Turn password sign-in back on before turning off single sign-on - otherwise no one could sign in."`
+
+Settings pinned by the environment count as they are in effect. Only a change that takes sign-in away is refused - a patch made while sign-in is already impossible (for example passwords pinned off by `ALLOW_PASSWORD_AUTHENTICATION=false` before OIDC is complete) goes through, so OIDC can be set up a step at a time.
 
 ### API keys
 
@@ -2965,10 +2976,21 @@ identifying the file — `filepath`, `filename`, `relative_path`, `content_hash`
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/maintenance/cleanup-missing` | POST | Remove DB records for files no longer present on disk. Also collects rows that outlived what they described: folder-tag rows whose directory is gone, tag links whose resource is gone, and tags left with no links at all. Returns a per-collection count plus `systems`, `folders`, and `tag_links`. Tagged `library`, so an [API key](#api-keys) needs `library: Read and write` to run it; the sidecar endpoints below are under `maintenance`. |
+| `/api/maintenance/cleanup-missing/preview` | GET | Dry run of the cleanup below - deletes nothing. Returns `{missing, total, library_unavailable}`: `missing` and `total` are `{books, maps, tokens, audio, models}` counts of rows whose file is gone and of all rows, and `library_unavailable` is true when the library folder looks unmounted (see below). 409 while a library scan is running. Tagged `library`. |
+| `/api/maintenance/cleanup-missing` | POST | Remove DB records for files no longer present on disk. Also collects rows that outlived what they described: folder-tag rows whose directory is gone, tag links whose resource is gone, and tags left with no links at all. Returns `{removed: {books, maps, tokens, audio, models, systems}}`. 409 while a library scan is running, and 409 with `"The library folder is missing or empty - it may not be mounted. Nothing was removed."` when the library folder looks unmounted, unless `?force=true`. Tagged `library`, so an [API key](#api-keys) needs `library: Read and write` to run it; the sidecar endpoints below are under `maintenance`. |
 | `/api/maintenance/sidecars/settings` | GET | Read metadata sidecar export settings |
 | `/api/maintenance/sidecars/settings` | PUT | Configure sidecar export (`formats`, `covers`, `overwrite_foreign`) |
 | `/api/maintenance/sidecars/export` | POST | Write metadata sidecars for the whole library |
+
+**Unmounted-library guard.** The library folder counts as unavailable when
+`LIBRARY_PATH` does not exist, is not a directory, or holds nothing but hidden
+files, while the database still has at least one book or media row - what a NAS
+or SMB share that failed to mount looks like. A cleanup then would read every
+row as missing and delete the whole catalogue with its tags, notes and
+bookmarks, so `POST /cleanup-missing` refuses with 409 unless `force=true`, and
+the automatic cleanup after a scheduled rescan (`cleanup_on_rescan`) is skipped
+with a warning in the log. An empty folder with an empty database is a new
+install and is not flagged.
 
 Sidecar export (issue #300) writes Grimoire's curated metadata next to the
 content files so the library folder is self-describing. It is **off by default**:

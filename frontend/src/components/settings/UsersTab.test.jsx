@@ -181,34 +181,8 @@ describe('UsersTab', () => {
   })
 
   describe('share links', () => {
-    it('lets an admin grant the player role and re-reads the users', async () => {
-      settingsApi.patch.mockResolvedValue({ ...shareDefaults, share_links_role_player: true })
-      render(<UsersTab />, { wrapper: MemoryRouter })
-      const player = await screen.findByLabelText('Player')
-      expect(player).not.toBeChecked()
-      expect(screen.getByLabelText('Admin')).toBeDisabled()
-      fireEvent.click(player)
-      await waitFor(() =>
-        expect(settingsApi.patch).toHaveBeenCalledWith({ share_links_role_player: true })
-      )
-      await waitFor(() => expect(screen.getByLabelText('Player')).toBeChecked())
-      // Everyone following the role just changed, so the table is fetched again.
-      await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2))
-    })
-
-    it('reports a failed role change', async () => {
-      settingsApi.patch.mockRejectedValue(new Error('denied'))
-      render(<UsersTab />, { wrapper: MemoryRouter })
-      fireEvent.click(await screen.findByLabelText('GM'))
-      expect(await screen.findByText('denied')).toBeInTheDocument()
-    })
-
-    it('says so when share links are off for the instance', async () => {
-      settingsApi.get.mockResolvedValue({ ...shareDefaults, share_links_enabled: false })
-      render(<UsersTab />, { wrapper: MemoryRouter })
-      expect(await screen.findByText(/SHARE_LINKS_ENABLED=false/)).toBeInTheDocument()
-    })
-
+    // The share-link role defaults moved to Settings > Access & sharing
+    // (ShareLinkRolesSection.test); the roster keeps only the per-user override.
     it("patches a user's override from the editor", async () => {
       api.patch.mockResolvedValue({ id: 'user-2', share_links: 'allow', share_links_allowed: true })
       render(<UsersTab />, { wrapper: MemoryRouter })

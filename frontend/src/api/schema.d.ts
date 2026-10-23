@@ -4317,6 +4317,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/maintenance/cleanup-missing/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview which DB entries a cleanup would remove
+         * @description Dry run of the cleanup: what is missing, out of how much, and whether the
+         *     library folder itself looks unmounted. Deletes nothing.
+         */
+        get: operations["cleanup_missing_preview_api_maintenance_cleanup_missing_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/maintenance/sidecars/export": {
         parameters: {
             query?: never;
@@ -9403,10 +9424,27 @@ export interface components {
             books: number;
             /** Maps */
             maps: number;
+            /** Models */
+            models: number;
             /** Systems */
             systems: number;
             /** Tokens */
             tokens: number;
+        };
+        /**
+         * CleanupPreviewResponse
+         * @description What a cleanup would remove, worked out without removing anything.
+         */
+        CleanupPreviewResponse: {
+            /**
+             * Library Unavailable
+             * @description The library folder is missing or empty while the database still holds items - most likely an unmounted share. A cleanup is refused unless forced.
+             */
+            library_unavailable: boolean;
+            /** @description Rows per collection whose file is no longer on disk. */
+            missing: components["schemas"]["CollectionCounts"];
+            /** @description All rows per collection. */
+            total: components["schemas"]["CollectionCounts"];
         };
         /** CleanupResponse */
         CleanupResponse: {
@@ -9599,6 +9637,22 @@ export interface components {
             ok: boolean;
             /** Url */
             url: string;
+        };
+        /**
+         * CollectionCounts
+         * @description A count per library collection.
+         */
+        CollectionCounts: {
+            /** Audio */
+            audio: number;
+            /** Books */
+            books: number;
+            /** Maps */
+            maps: number;
+            /** Models */
+            models: number;
+            /** Tokens */
+            tokens: number;
         };
         /** CompareDifference */
         CompareDifference: {
@@ -14370,6 +14424,8 @@ export interface components {
             oidc_client_secret_length: number;
             /** Oidc Client Secret Set */
             oidc_client_secret_set: boolean;
+            /** Oidc Configured */
+            oidc_configured: boolean;
             /** Oidc Enabled */
             oidc_enabled: boolean;
             /** Oidc Enabled Env Locked */
@@ -26473,7 +26529,10 @@ export interface operations {
     };
     cleanup_missing_api_maintenance_cleanup_missing_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Run even though the library folder looks unmounted (missing or empty while the database still holds items). */
+                force?: boolean;
+            };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26492,6 +26551,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CleanupResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cleanup_missing_preview_api_maintenance_cleanup_missing_preview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleanupPreviewResponse"];
                 };
             };
             /** @description Validation Error */

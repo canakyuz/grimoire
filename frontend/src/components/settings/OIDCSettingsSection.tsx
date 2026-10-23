@@ -1,10 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuCircleCheck, LuRefreshCw, LuCopy, LuLock, LuEye, LuEyeOff } from 'react-icons/lu'
+import {
+  LuCircleCheck,
+  LuRefreshCw,
+  LuCopy,
+  LuLock,
+  LuEye,
+  LuEyeOff,
+  LuTriangleAlert,
+} from 'react-icons/lu'
 import api, { settings as settingsApi, type Schema } from '../../api'
 import Spinner from '../Spinner'
 import OIDCButtonAppearance from './OIDCButtonAppearance'
+import { useUnsavedChanges } from './settingsDirty'
 
 type Settings = Schema<'SettingsResponse'>
 type SettingsPatch = Schema<'SettingsPatch'>
@@ -117,12 +126,30 @@ export default function OIDCSettingsSection() {
     setDraft(next)
   }, [data])
 
+  // A text field saves when it loses focus, and the secret on its own Save:
+  // anything typed but not yet saved is an unsaved edit.
+  const dirty =
+    !!data &&
+    Object.keys(draft).length > 0 &&
+    (secretDraft !== '' ||
+      STRING_FIELDS.some(
+        (k) =>
+          !field(data, `${k}_env_locked`) &&
+          (draft[k] ?? '') !== ((field(data, k) as string | undefined) ?? '')
+      ))
+  useUnsavedChanges('oidc', dirty)
+
   if (!data) return <Spinner size={20} />
 
   const isLocked = (key: string) => !!field(data, `${key}_env_locked`)
   const text = (key: string) => (draft[key] as string | undefined) ?? ''
   const signingAlg = text('oidc_signing_alg') || 'RS256'
   const signingAlgSupported = SIGNING_ALGS.includes(signingAlg)
+  // Until OIDC is turned on, only what's needed to decide (and the redirect
+  // URI to register with the provider) is shown; the rest follows the toggle.
+  const enabled = 'oidc_enabled' in draft ? !!draft.oidc_enabled : !!data.oidc_enabled
+  // Read defensively: older servers don't send it.
+  const configured = field(data, 'oidc_configured') !== false
 
   const saveField = async (key: string, value: string | boolean) => {
     if (isLocked(key)) return
@@ -240,6 +267,25 @@ export default function OIDCSettingsSection() {
   }
 
   // ---------- helpers ----------
+  // A field's "Saved" tick, in a live region so it is announced, not only seen.
+  const savedTick = (key: string, size: number) => (
+    <span role="status" style={{ display: 'inline-flex' }}>
+      {savedField === key && (
+        <>
+          <LuCircleCheck size={size} aria-hidden="true" style={{ color: 'var(--green)' }} />
+          <span className="visually-hidden">{t('common.saved')}</span>
+        </>
+      )}
+    </span>
+  )
+
+  const subBlock = (title: string, children: ReactNode) => (
+    <div style={{ marginTop: 28 }}>
+      <h4 style={subheadingStyle}>{title}</h4>
+      {children}
+    </div>
+  )
+
   const fieldRow = ({ key, label, hint, type = 'text', placeholder = '' }: FieldRowProps) => {
     const locked = isLocked(key)
     return (
@@ -252,7 +298,7 @@ export default function OIDCSettingsSection() {
             </span>
           )}
           {savingField === key && <Spinner size={12} />}
-          {savedField === key && <LuCircleCheck size={13} style={{ color: 'var(--green)' }} />}
+          {savedTick(key, 13)}
         </label>
         <input
           id={key}
@@ -320,7 +366,7 @@ export default function OIDCSettingsSection() {
             </span>
           )}
           {savingField === key && <Spinner size={13} />}
-          {savedField === key && <LuCircleCheck size={14} style={{ color: 'var(--green)' }} />}
+          {savedTick(key, 14)}
         </label>
         {hint && (
           <div
@@ -341,9 +387,7 @@ export default function OIDCSettingsSection() {
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>
-        {t('authSettings.oidc.title')}
-      </h3>
+      <h3 style={{ marginBottom: 6 }}>{t('authSettings.oidc.title')}</h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
         {t('authSettings.oidc.description')}
       </p>
@@ -382,8 +426,10 @@ export default function OIDCSettingsSection() {
             {data.oidc_redirect_uri}
           </code>
           <button
+            type="button"
             onClick={handleCopyRedirect}
             title={t('authSettings.oidc.copy')}
+            aria-label={t('authSettings.oidc.copy')}
             style={{
               background: 'none',
               border: 'none',
@@ -393,310 +439,403 @@ export default function OIDCSettingsSection() {
               padding: 6,
             }}
           >
-            {redirectCopied ? <LuCircleCheck size={15} /> : <LuCopy size={15} />}
+            {redirectCopied ? (
+              <LuCircleCheck size={15} aria-hidden="true" />
+            ) : (
+              <LuCopy size={15} aria-hidden="true" />
+            )}
           </button>
+          <span role="status" className="visually-hidden">
+            {redirectCopied ? t('authSettings.oidc.copied') : ''}
+          </span>
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
           {t('authSettings.oidc.redirectUriHint')}
         </div>
       </div>
 
-      {/* Issuer URL with Autopopulate */}
-      <div style={{ marginBottom: 14 }}>
-        <label htmlFor="oidc_issuer_url" style={fieldLabelStyle}>
-          <span>{t('authSettings.oidc.issuerUrl')}</span>
-          {isLocked('oidc_issuer_url') && (
-            <span style={lockedTagStyle}>
-              <LuLock size={10} /> {t('authSettings.oidc.envLocked')}
-            </span>
-          )}
-          {savingField === 'oidc_issuer_url' && <Spinner size={12} />}
-          {savedField === 'oidc_issuer_url' && (
-            <LuCircleCheck size={13} style={{ color: 'var(--green)' }} />
-          )}
-        </label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            id="oidc_issuer_url"
-            type="text"
-            value={text('oidc_issuer_url')}
-            onChange={(e) => setDraft((d) => ({ ...d, oidc_issuer_url: e.target.value }))}
-            onBlur={() => handleStringBlur('oidc_issuer_url')}
-            disabled={isLocked('oidc_issuer_url')}
-            placeholder="https://idp.example.com/realms/main"
-            style={{
-              flex: 1,
-              fontSize: 13,
-              padding: '7px 10px',
-              background: isLocked('oidc_issuer_url') ? 'var(--bg-deep)' : 'var(--bg-input)',
-            }}
-          />
-          <button
-            type="button"
-            onClick={handleDiscover}
-            disabled={discovering || !text('oidc_issuer_url')}
-            style={{
-              ...primaryBtnStyle,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              opacity: discovering || !text('oidc_issuer_url') ? 0.6 : 1,
-              cursor: discovering || !text('oidc_issuer_url') ? 'default' : 'pointer',
-            }}
-            title={t('authSettings.oidc.autopopulateTitle')}
-          >
-            <LuRefreshCw size={13} />{' '}
-            {discovering
-              ? t('authSettings.oidc.autopopulating')
-              : t('authSettings.oidc.autopopulate')}
-          </button>
-        </div>
-        {discoverError && (
-          <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 6 }}>{discoverError}</div>
-        )}
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
-          {t('authSettings.oidc.issuerUrlHint')}
-        </div>
-      </div>
-
-      {fieldRow({
-        key: 'oidc_token_issuer',
-        label: t('authSettings.oidc.tokenIssuer'),
-      })}
-      {fieldRow({
-        key: 'oidc_authorization_endpoint',
-        label: t('authSettings.oidc.authorizationEndpoint'),
-      })}
-      {fieldRow({ key: 'oidc_token_endpoint', label: t('authSettings.oidc.tokenEndpoint') })}
-      {fieldRow({
-        key: 'oidc_userinfo_endpoint',
-        label: t('authSettings.oidc.userinfoEndpoint'),
-      })}
-      {fieldRow({ key: 'oidc_jwks_uri', label: t('authSettings.oidc.jwksUri') })}
-      {fieldRow({
-        key: 'oidc_end_session_endpoint',
-        label: t('authSettings.oidc.endSessionEndpoint'),
-        hint: t('authSettings.oidc.endSessionHint'),
-      })}
-      {fieldRow({ key: 'oidc_client_id', label: t('authSettings.oidc.clientId') })}
-
-      {/* Client secret — masked, set/clear pattern */}
-      <div style={{ marginBottom: 14 }}>
-        <label htmlFor="oidc_client_secret" style={fieldLabelStyle}>
-          <span>{t('authSettings.oidc.clientSecret')}</span>
-          {isLocked('oidc_client_secret') && (
-            <span style={lockedTagStyle}>
-              <LuLock size={10} /> {t('authSettings.oidc.envLocked')}
-            </span>
-          )}
-          {savingField === 'oidc_client_secret' && <Spinner size={12} />}
-          {savedField === 'oidc_client_secret' && (
-            <LuCircleCheck size={13} style={{ color: 'var(--green)' }} />
-          )}
-        </label>
-        {data.oidc_client_secret_set && !secretDraft && !isLocked('oidc_client_secret') && (
-          <div
-            style={{
-              fontSize: 13,
-              color: 'var(--text-muted)',
-              padding: '7px 10px',
-              background: 'var(--bg-deep)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              marginBottom: 6,
-              fontFamily: 'monospace',
-            }}
-          >
-            {'•'.repeat(Math.min(data.oidc_client_secret_length || 0, 40))}
-          </div>
-        )}
-        {!isLocked('oidc_client_secret') && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <div style={{ flex: 1, position: 'relative' }}>
-              <input
-                id="oidc_client_secret"
-                type={showSecret ? 'text' : 'password'}
-                value={secretDraft}
-                onChange={(e) => setSecretDraft(e.target.value)}
-                placeholder={
-                  data.oidc_client_secret_set
-                    ? t('authSettings.oidc.clientSecretReplace')
-                    : t('authSettings.oidc.clientSecretPlaceholder')
-                }
-                style={{
-                  width: '100%',
-                  fontSize: 13,
-                  padding: '7px 36px 7px 10px',
-                  boxSizing: 'border-box',
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowSecret((v) => !v)}
-                title={
-                  showSecret ? t('authSettings.oidc.hideSecret') : t('authSettings.oidc.showSecret')
-                }
-                style={{
-                  position: 'absolute',
-                  right: 6,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--text-muted)',
-                  display: 'flex',
-                  padding: 4,
-                }}
-              >
-                {showSecret ? <LuEyeOff size={14} /> : <LuEye size={14} />}
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={handleSaveSecret}
-              disabled={!secretDraft || savingField === 'oidc_client_secret'}
+      {enabled && (
+        <>
+          {!configured && (
+            <p
               style={{
-                ...primaryBtnStyle,
-                opacity: !secretDraft ? 0.5 : 1,
-                cursor: !secretDraft ? 'default' : 'pointer',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 8,
+                fontSize: 14,
+                lineHeight: 1.5,
+                color: 'var(--warning)',
+                margin: '0 0 8px',
               }}
             >
-              {t('common.save')}
-            </button>
-            {data.oidc_client_secret_set && (
-              <button
-                type="button"
-                onClick={handleClearSecret}
-                disabled={savingField === 'oidc_client_secret'}
-                style={dangerBtnStyle}
-              >
-                {t('common.clear')}
-              </button>
-            )}
-          </div>
-        )}
-        {isLocked('oidc_client_secret') && (
-          <div
-            style={{
-              fontSize: 13,
-              color: 'var(--text-muted)',
-              padding: '7px 10px',
-              background: 'var(--bg-deep)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              fontFamily: 'monospace',
-            }}
-          >
-            {'•'.repeat(Math.min(data.oidc_client_secret_length || 0, 40))}
-          </div>
-        )}
-      </div>
-
-      {/* Signing alg */}
-      <div style={{ marginBottom: 14 }}>
-        <label htmlFor="oidc_signing_alg" style={fieldLabelStyle}>
-          <span>{t('authSettings.oidc.signingAlg')}</span>
-          {isLocked('oidc_signing_alg') && (
-            <span style={lockedTagStyle}>
-              <LuLock size={10} /> {t('authSettings.oidc.envLocked')}
-            </span>
+              <LuTriangleAlert
+                size={16}
+                aria-hidden="true"
+                style={{ flexShrink: 0, marginTop: 2 }}
+              />
+              {t('authSettings.oidc.notConfigured')}
+            </p>
           )}
-        </label>
-        <select
-          id="oidc_signing_alg"
-          value={signingAlg}
-          onChange={(e) => handleSelectChange('oidc_signing_alg', e.target.value)}
-          disabled={isLocked('oidc_signing_alg')}
-          style={selectStyle}
-        >
-          {/* A value saved before it stopped being offered (HS256), shown as
+
+          {subBlock(
+            t('authSettings.oidc.groups.provider'),
+            <>
+              {/* Issuer URL with Autopopulate */}
+              <div style={{ marginBottom: 14 }}>
+                <label htmlFor="oidc_issuer_url" style={fieldLabelStyle}>
+                  <span>{t('authSettings.oidc.issuerUrl')}</span>
+                  {isLocked('oidc_issuer_url') && (
+                    <span style={lockedTagStyle}>
+                      <LuLock size={10} /> {t('authSettings.oidc.envLocked')}
+                    </span>
+                  )}
+                  {savingField === 'oidc_issuer_url' && <Spinner size={12} />}
+                  {savedTick('oidc_issuer_url', 13)}
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    id="oidc_issuer_url"
+                    type="text"
+                    value={text('oidc_issuer_url')}
+                    onChange={(e) => setDraft((d) => ({ ...d, oidc_issuer_url: e.target.value }))}
+                    onBlur={() => handleStringBlur('oidc_issuer_url')}
+                    disabled={isLocked('oidc_issuer_url')}
+                    placeholder="https://idp.example.com/realms/main"
+                    style={{
+                      flex: 1,
+                      fontSize: 13,
+                      padding: '7px 10px',
+                      background: isLocked('oidc_issuer_url')
+                        ? 'var(--bg-deep)'
+                        : 'var(--bg-input)',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleDiscover}
+                    disabled={discovering || !text('oidc_issuer_url')}
+                    style={{
+                      ...primaryBtnStyle,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      opacity: discovering || !text('oidc_issuer_url') ? 0.6 : 1,
+                      cursor: discovering || !text('oidc_issuer_url') ? 'default' : 'pointer',
+                    }}
+                    title={t('authSettings.oidc.autopopulateTitle')}
+                  >
+                    <LuRefreshCw size={13} />{' '}
+                    {discovering
+                      ? t('authSettings.oidc.autopopulating')
+                      : t('authSettings.oidc.autopopulate')}
+                  </button>
+                </div>
+                {discoverError && (
+                  <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 6 }}>
+                    {discoverError}
+                  </div>
+                )}
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--text-muted)',
+                    marginTop: 4,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {t('authSettings.oidc.issuerUrlHint')}
+                </div>
+              </div>
+
+              {fieldRow({
+                key: 'oidc_token_issuer',
+                label: t('authSettings.oidc.tokenIssuer'),
+              })}
+              {fieldRow({
+                key: 'oidc_authorization_endpoint',
+                label: t('authSettings.oidc.authorizationEndpoint'),
+              })}
+              {fieldRow({
+                key: 'oidc_token_endpoint',
+                label: t('authSettings.oidc.tokenEndpoint'),
+              })}
+              {fieldRow({
+                key: 'oidc_userinfo_endpoint',
+                label: t('authSettings.oidc.userinfoEndpoint'),
+              })}
+              {fieldRow({ key: 'oidc_jwks_uri', label: t('authSettings.oidc.jwksUri') })}
+              {fieldRow({
+                key: 'oidc_end_session_endpoint',
+                label: t('authSettings.oidc.endSessionEndpoint'),
+                hint: t('authSettings.oidc.endSessionHint'),
+              })}
+              {/* Signing alg */}
+              <div style={{ marginBottom: 14 }}>
+                <label htmlFor="oidc_signing_alg" style={fieldLabelStyle}>
+                  <span>{t('authSettings.oidc.signingAlg')}</span>
+                  {isLocked('oidc_signing_alg') && (
+                    <span style={lockedTagStyle}>
+                      <LuLock size={10} /> {t('authSettings.oidc.envLocked')}
+                    </span>
+                  )}
+                </label>
+                <select
+                  id="oidc_signing_alg"
+                  value={signingAlg}
+                  onChange={(e) => handleSelectChange('oidc_signing_alg', e.target.value)}
+                  disabled={isLocked('oidc_signing_alg')}
+                  style={selectStyle}
+                >
+                  {/* A value saved before it stopped being offered (HS256), shown as
               what it is rather than silently as the first option. */}
-          {!signingAlgSupported && (
-            <option value={signingAlg} disabled>
-              {t('authSettings.oidc.signingAlgUnsupported', { alg: signingAlg })}
-            </option>
+                  {!signingAlgSupported && (
+                    <option value={signingAlg} disabled>
+                      {t('authSettings.oidc.signingAlgUnsupported', { alg: signingAlg })}
+                    </option>
+                  )}
+                  {SIGNING_ALGS.map((a) => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
+                  ))}
+                </select>
+                {!signingAlgSupported && (
+                  <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4, lineHeight: 1.5 }}>
+                    {t('authSettings.oidc.signingAlgUnsupportedHint')}
+                  </div>
+                )}
+              </div>
+            </>
           )}
-          {SIGNING_ALGS.map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
-          ))}
-        </select>
-        {!signingAlgSupported && (
-          <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4, lineHeight: 1.5 }}>
-            {t('authSettings.oidc.signingAlgUnsupportedHint')}
+
+          {subBlock(
+            t('authSettings.oidc.groups.client'),
+            <>
+              {fieldRow({ key: 'oidc_client_id', label: t('authSettings.oidc.clientId') })}
+
+              {/* Client secret — masked, set/clear pattern */}
+              <div style={{ marginBottom: 14 }}>
+                <label htmlFor="oidc_client_secret" style={fieldLabelStyle}>
+                  <span>{t('authSettings.oidc.clientSecret')}</span>
+                  {isLocked('oidc_client_secret') && (
+                    <span style={lockedTagStyle}>
+                      <LuLock size={10} /> {t('authSettings.oidc.envLocked')}
+                    </span>
+                  )}
+                  {savingField === 'oidc_client_secret' && <Spinner size={12} />}
+                  {savedTick('oidc_client_secret', 13)}
+                </label>
+                {data.oidc_client_secret_set && !secretDraft && !isLocked('oidc_client_secret') && (
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: 'var(--text-muted)',
+                      padding: '7px 10px',
+                      background: 'var(--bg-deep)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 6,
+                      marginBottom: 6,
+                      fontFamily: 'monospace',
+                    }}
+                  >
+                    {'•'.repeat(Math.min(data.oidc_client_secret_length || 0, 40))}
+                  </div>
+                )}
+                {!isLocked('oidc_client_secret') && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1, position: 'relative' }}>
+                      <input
+                        id="oidc_client_secret"
+                        type={showSecret ? 'text' : 'password'}
+                        value={secretDraft}
+                        onChange={(e) => setSecretDraft(e.target.value)}
+                        placeholder={
+                          data.oidc_client_secret_set
+                            ? t('authSettings.oidc.clientSecretReplace')
+                            : t('authSettings.oidc.clientSecretPlaceholder')
+                        }
+                        style={{
+                          width: '100%',
+                          fontSize: 13,
+                          padding: '7px 36px 7px 10px',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSecret((v) => !v)}
+                        title={
+                          showSecret
+                            ? t('authSettings.oidc.hideSecret')
+                            : t('authSettings.oidc.showSecret')
+                        }
+                        style={{
+                          position: 'absolute',
+                          right: 6,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: 'var(--text-muted)',
+                          display: 'flex',
+                          padding: 4,
+                        }}
+                      >
+                        {showSecret ? <LuEyeOff size={14} /> : <LuEye size={14} />}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSaveSecret}
+                      disabled={!secretDraft || savingField === 'oidc_client_secret'}
+                      style={{
+                        ...primaryBtnStyle,
+                        opacity: !secretDraft ? 0.5 : 1,
+                        cursor: !secretDraft ? 'default' : 'pointer',
+                      }}
+                    >
+                      {t('common.save')}
+                    </button>
+                    {data.oidc_client_secret_set && (
+                      <button
+                        type="button"
+                        onClick={handleClearSecret}
+                        disabled={savingField === 'oidc_client_secret'}
+                        style={dangerBtnStyle}
+                      >
+                        {t('common.clear')}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {isLocked('oidc_client_secret') && (
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: 'var(--text-muted)',
+                      padding: '7px 10px',
+                      background: 'var(--bg-deep)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 6,
+                      fontFamily: 'monospace',
+                    }}
+                  >
+                    {'•'.repeat(Math.min(data.oidc_client_secret_length || 0, 40))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* The button's text, colours, radius and icon, with a live preview. */}
+          <div style={{ marginTop: 28 }}>
+            <OIDCButtonAppearance data={data} onSaved={setData} />
           </div>
-        )}
-      </div>
 
-      {/* The button's text, colours, radius and icon, with a live preview. */}
-      <OIDCButtonAppearance data={data} onSaved={setData} />
-      {fieldRow({
-        key: 'oidc_groups_claim',
-        label: t('authSettings.oidc.groupsClaim'),
-        hint: t('authSettings.oidc.groupsClaimHint'),
-      })}
-      {fieldRow({
-        key: 'oidc_admin_group',
-        label: t('authSettings.oidc.adminGroup'),
-        placeholder: 'admin',
-      })}
-      {fieldRow({ key: 'oidc_gm_group', label: t('authSettings.oidc.gmGroup'), placeholder: 'gm' })}
-      {fieldRow({
-        key: 'oidc_player_group',
-        label: t('authSettings.oidc.playerGroup'),
-        placeholder: 'player',
-        hint: t('authSettings.oidc.roleGroupsHint'),
-      })}
-      {fieldRow({
-        key: 'oidc_permissions_claim',
-        label: t('authSettings.oidc.permissionsClaim'),
-        hint: t('authSettings.oidc.permissionsClaimHint'),
-      })}
-
-      {/* Match by */}
-      <div style={{ marginBottom: 14 }}>
-        <label htmlFor="oidc_match_by" style={fieldLabelStyle}>
-          <span>{t('authSettings.oidc.matchBy')}</span>
-          {isLocked('oidc_match_by') && (
-            <span style={lockedTagStyle}>
-              <LuLock size={10} /> {t('authSettings.oidc.envLocked')}
-            </span>
+          {subBlock(
+            t('authSettings.oidc.groups.roles'),
+            <>
+              {fieldRow({
+                key: 'oidc_groups_claim',
+                label: t('authSettings.oidc.groupsClaim'),
+                hint: t('authSettings.oidc.groupsClaimHint'),
+              })}
+              {fieldRow({
+                key: 'oidc_admin_group',
+                label: t('authSettings.oidc.adminGroup'),
+                placeholder: 'admin',
+              })}
+              {fieldRow({
+                key: 'oidc_gm_group',
+                label: t('authSettings.oidc.gmGroup'),
+                placeholder: 'gm',
+              })}
+              {fieldRow({
+                key: 'oidc_player_group',
+                label: t('authSettings.oidc.playerGroup'),
+                placeholder: 'player',
+                hint: t('authSettings.oidc.roleGroupsHint'),
+              })}
+              {fieldRow({
+                key: 'oidc_permissions_claim',
+                label: t('authSettings.oidc.permissionsClaim'),
+                hint: t('authSettings.oidc.permissionsClaimHint'),
+              })}
+            </>
           )}
-        </label>
-        <select
-          id="oidc_match_by"
-          value={text('oidc_match_by') || 'none'}
-          onChange={(e) => handleSelectChange('oidc_match_by', e.target.value)}
-          disabled={isLocked('oidc_match_by')}
-          style={selectStyle}
-        >
-          {MATCH_BY_OPTIONS.map((m) => (
-            <option key={m} value={m}>
-              {t(`authSettings.oidc.matchByOptions.${m}`)}
-            </option>
-          ))}
-        </select>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
-          {t('authSettings.oidc.matchByHint')}
+
+          {subBlock(
+            t('authSettings.oidc.groups.behaviour'),
+            <>
+              {/* Match by */}
+              <div style={{ marginBottom: 14 }}>
+                <label htmlFor="oidc_match_by" style={fieldLabelStyle}>
+                  <span>{t('authSettings.oidc.matchBy')}</span>
+                  {isLocked('oidc_match_by') && (
+                    <span style={lockedTagStyle}>
+                      <LuLock size={10} /> {t('authSettings.oidc.envLocked')}
+                    </span>
+                  )}
+                </label>
+                <select
+                  id="oidc_match_by"
+                  value={text('oidc_match_by') || 'none'}
+                  onChange={(e) => handleSelectChange('oidc_match_by', e.target.value)}
+                  disabled={isLocked('oidc_match_by')}
+                  style={selectStyle}
+                >
+                  {MATCH_BY_OPTIONS.map((m) => (
+                    <option key={m} value={m}>
+                      {t(`authSettings.oidc.matchByOptions.${m}`)}
+                    </option>
+                  ))}
+                </select>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--text-muted)',
+                    marginTop: 4,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {t('authSettings.oidc.matchByHint')}
+                </div>
+              </div>
+
+              {checkboxRow(
+                'oidc_auto_launch',
+                t('authSettings.oidc.autoLaunch'),
+                t('authSettings.oidc.autoLaunchHint')
+              )}
+              {checkboxRow(
+                'oidc_auto_register',
+                t('authSettings.oidc.autoRegister'),
+                t('authSettings.oidc.autoRegisterHint')
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      {error && (
+        <div role="alert" style={{ marginTop: 10, fontSize: 13, color: 'var(--red)' }}>
+          {error}
         </div>
-      </div>
-
-      {checkboxRow(
-        'oidc_auto_launch',
-        t('authSettings.oidc.autoLaunch'),
-        t('authSettings.oidc.autoLaunchHint')
       )}
-      {checkboxRow(
-        'oidc_auto_register',
-        t('authSettings.oidc.autoRegister'),
-        t('authSettings.oidc.autoRegisterHint')
-      )}
-
-      {error && <div style={{ marginTop: 10, fontSize: 13, color: 'var(--red)' }}>{error}</div>}
     </div>
   )
+}
+
+// A labelled block of related fields, a step below the setting's own h3, in
+// the body face rather than the display one.
+const subheadingStyle: CSSProperties = {
+  fontFamily: "'Alegreya Sans', sans-serif",
+  fontSize: 15,
+  fontWeight: 700,
+  letterSpacing: 0,
+  color: 'var(--text-dim)',
+  margin: '0 0 10px',
 }
 
 const fieldLabelStyle: CSSProperties = {

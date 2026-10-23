@@ -41,7 +41,7 @@ A link also stops working, without anyone touching it, when:
 - you can no longer open the item yourself - for example it has been given a higher [access level](users-and-permissions.md), or it is flagged explicit and you have turned explicit content off;
 - the item is deleted or its file goes missing.
 
-The middle two are not permanent. The link is *suspended*, not deleted, and works again if your access comes back. Your links, with each one's state, are under **Settings → Account → Sharing**, and you can still revoke them there after losing the right to make new ones.
+The middle two are not permanent. The link is *suspended*, not deleted, and works again if your access comes back. Your links, with each one's state, are under **Settings → Connections → Share links**, and you can still revoke them there after losing the right to make new ones.
 
 Anyone opening a link that does not work sees the same "This link doesn't work" page whatever the reason, so a link never tells a stranger whether it expired, was revoked, or points at something you can no longer see.
 
@@ -49,10 +49,10 @@ Anyone opening a link that does not work sees the same "This link doesn't work" 
 
 Share links are on by default. An admin can turn them off for the whole server with `SHARE_LINKS_ENABLED=false` (see [configuration](configuration.md)): every link stops working and the Share buttons disappear. The links themselves are kept, so turning it back on restores them.
 
-Who may create links is set in **Settings → Users**:
+Who may create links is set in two places:
 
-- **By role.** Admins always may. GMs may by default; players may not. The **Share links** panel above the user table turns either role on or off.
-- **Per user.** Each user's row has a **Share links** setting - *Follow role*, *Allow*, or *Deny* - that wins over their role either way. Under it is the result, such as "Allowed (from role)" for a GM with no setting of their own.
+- **By role.** Admins always may. GMs may by default; players may not. **Settings → Access & sharing → Share links by role** turns either role on or off.
+- **Per user.** In **Settings → People**, each user's row has a **Share links** setting - *Follow role*, *Allow*, or *Deny* - that wins over their role either way. Under it is the result, such as "Allowed (from role)" for a GM with no setting of their own.
 - **Guests** can never create links.
 
 The same row lists every link that user has made, so an admin can revoke any of them. Turning someone's permission off suspends their links rather than deleting them.

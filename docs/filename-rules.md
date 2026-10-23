@@ -10,7 +10,7 @@ scheme means, in two places:
   map, `-pf` for a printer-friendly PDF - so duplicate review pre-fills them the way it already
   does for `nogrid` or `printer friendly`.
 
-Both live under **Settings → Metadata** and are admin only. Your files are never renamed unless
+Both live under **Settings → Library → Files & folders** and are admin only. Your files are never renamed unless
 you ask for it.
 
 ---

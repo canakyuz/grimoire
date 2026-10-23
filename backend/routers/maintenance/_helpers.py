@@ -2,10 +2,13 @@
 import os
 import threading
 from pathlib import Path
+from typing import Any, Iterator
+
+from sqlalchemy.orm import Session
 
 from ...config import LIBRARY_PATH, logger
 from ...indexer.metadata import resolve_collection_dir
-from ...models.collections import iter_specs
+from ...models.collections import CollectionSpec, iter_specs
 from ...models import RESOURCE_TYPES, Book, BookFolder, Campaign, GameSystem, ResourceTag
 from ...services import tag_service
 from ...services.library_fs.references import purge_references, purge_system_references
@@ -31,6 +34,99 @@ def _path_exists(filepath: str) -> bool:
         logger.warning(f"Cleanup: filesystem check timed out for '{filepath}' - skipping")
         return True
     return result[0]
+
+
+def _library_root_has_entries(root: str) -> bool:
+    """Whether ``root`` is a directory holding at least one visible entry.
+
+    Dotfiles do not count: an unmounted mount point can still carry a stray
+    ``.DS_Store`` or similar, and no real library is made of hidden files alone.
+    A listing that hangs (a dead network mount) counts as no entries, which is
+    the cautious answer here - it stops a cleanup rather than starting one.
+    """
+    result = [False]
+
+    def _check() -> None:
+        try:
+            if not os.path.isdir(root):
+                return
+            with os.scandir(root) as entries:
+                result[0] = any(not e.name.startswith(".") for e in entries)
+        except OSError:
+            result[0] = False
+
+    t = threading.Thread(target=_check, daemon=True)
+    t.start()
+    t.join(_FS_TIMEOUT)
+    if t.is_alive():
+        logger.warning(f"Cleanup: listing the library folder '{root}' timed out")
+        return False
+    return result[0]
+
+
+def _db_has_library_rows(db: Session) -> bool:
+    """Whether the database holds at least one book or media row."""
+    return any(db.query(spec.model.id).first() is not None for spec in iter_specs())
+
+
+def library_root_unavailable(db: Session) -> bool:
+    """True when the library folder looks unmounted rather than emptied.
+
+    That is: LIBRARY_PATH is missing, is not a directory, or is empty, while the
+    database still holds books or media. A NAS or SMB share that failed to mount
+    looks exactly like this, and a cleanup run against it would read every row
+    as missing and delete the whole catalogue - tags, notes, bookmarks and all.
+    An empty library with an empty database is just a new install.
+    """
+    if _library_root_has_entries(LIBRARY_PATH):
+        return False
+    return _db_has_library_rows(db)
+
+
+def _iter_missing(db: Session, spec: CollectionSpec) -> Iterator[Any]:
+    """Yield the rows of one collection whose file is no longer on disk.
+
+    Shared by the cleanup and its dry-run preview so the two can never disagree
+    about what counts as missing.
+    """
+    rows = db.query(spec.model).all()
+    logger.debug(f"Cleanup: checking {len(rows)} {spec.singular}(s)")
+    for row in rows:
+        if _path_exists(row.filepath):
+            logger.debug(f"Cleanup: {spec.singular} '{row.filepath}' present - skipping")
+            continue
+        yield row
+
+
+def preview_cleanup(db: Session) -> dict[str, Any]:
+    """Count what a cleanup would remove, without removing anything."""
+    missing: dict[str, int] = {}
+    total: dict[str, int] = {}
+    for spec in iter_specs():
+        total[spec.section] = db.query(spec.model).count()
+        missing[spec.section] = sum(1 for _ in _iter_missing(db, spec))
+    return {
+        "missing": missing,
+        "total": total,
+        "library_unavailable": library_root_unavailable(db),
+    }
+
+
+def _remove_missing(db: Session, spec: CollectionSpec) -> int:
+    """Delete one collection's rows whose file is gone; return how many.
+
+    Commits after each row so the write lock is released between rows and
+    doesn't block concurrent scanner sessions.
+    """
+    count = 0
+    for row in _iter_missing(db, spec):
+        logger.info(f"Cleanup: removing missing {spec.singular} ({row.filepath})")
+        purge_references(db, spec.model, row.id)
+        db.delete(row)
+        db.commit()
+        logger.debug(f"Cleanup: committed removal of {spec.singular} id={row.id}")
+        count += 1
+    return count
 
 
 def _prune_orphaned_systems(db) -> int:
@@ -240,58 +336,29 @@ def _prune_orphaned_tag_links(db) -> int:
 def _do_cleanup(db) -> dict:
     """Delete DB records whose files no longer exist on disk.
 
-    Commits after each deleted record so the write lock is released between
-    rows and doesn't block concurrent scanner sessions.
+    Callers check :func:`library_root_unavailable` first: this function trusts
+    that a missing file really is gone.
     """
     removed = {spec.section: 0 for spec in iter_specs()}
     removed["systems"] = 0
     removed["folders"] = 0
     removed["tag_links"] = 0
 
-    books = db.query(Book).all()
-    logger.debug(f"Cleanup: checking {len(books)} book(s)")
-    for book in books:
-        logger.debug(f"Cleanup: checking book '{book.title}' ({book.filepath})")
-        if not _path_exists(book.filepath):
-            logger.info(f"Cleanup: removing missing book '{book.title}' ({book.filepath})")
-            logger.debug(f"Cleanup: purging references for book id={book.id}")
-            purge_references(db, Book, book.id)
-            db.delete(book)
-            db.commit()
-            logger.debug(f"Cleanup: committed removal of book id={book.id}")
-            removed["books"] += 1
-        else:
-            logger.debug(f"Cleanup: book '{book.title}' present - skipping")
+    specs = list(iter_specs())
+    for spec in specs:
+        if spec.singular == "book":
+            removed[spec.section] += _remove_missing(db, spec)
 
+    # Books first, so systems they emptied are pruned before the media sweep.
     removed["systems"] += _prune_orphaned_systems(db)
 
     # Maps, tokens, audio and models differ only in their model class, so they
     # run through one loop driven by the collection registry rather than four
     # copies of it — which is also what keeps a newly added collection from
     # being silently skipped here.
-    for spec in iter_specs():
-        if spec.singular == "book":
-            continue
-        rows = db.query(spec.model).all()
-        logger.debug(f"Cleanup: checking {len(rows)} {spec.singular}(s)")
-        for row in rows:
-            logger.debug(
-                f"Cleanup: checking {spec.singular} '{row.filename}' ({row.filepath})"
-            )
-            if not _path_exists(row.filepath):
-                logger.info(
-                    f"Cleanup: removing missing {spec.singular} "
-                    f"'{row.filename}' ({row.filepath})"
-                )
-                purge_references(db, spec.model, row.id)
-                db.delete(row)
-                db.commit()
-                logger.debug(f"Cleanup: committed removal of {spec.singular} id={row.id}")
-                removed[spec.section] += 1
-            else:
-                logger.debug(
-                    f"Cleanup: {spec.singular} '{row.filename}' present - skipping"
-                )
+    for spec in specs:
+        if spec.singular != "book":
+            removed[spec.section] += _remove_missing(db, spec)
 
     # Path-keyed and polymorphic rows last: both are resolved against what the
     # sweeps above have just finished removing, so running them earlier would
@@ -309,6 +376,13 @@ def run_cleanup_sync() -> None:
     logger.debug("Cleanup: scheduled run starting")
     db = SessionLocal()
     try:
+        if library_root_unavailable(db):
+            logger.warning(
+                "Cleanup: skipped - the library folder '%s' is missing or empty while "
+                "the database still holds items. It may not be mounted.",
+                LIBRARY_PATH,
+            )
+            return
         removed = _do_cleanup(db)
         logger.info(f"Cleanup complete: {removed}")
     except Exception:

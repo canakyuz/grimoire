@@ -10,7 +10,7 @@ import { useUISettings } from '../../context/UISettingsContext'
 import UserRow from './UserRow'
 import AddUserForm from './AddUserForm'
 import GuestsSection from './GuestsSection'
-import ShareLinkRolesSection from './ShareLinkRolesSection'
+import SettingsSection from './SettingsSection'
 
 const COLUMN_COUNT = 6
 
@@ -164,10 +164,6 @@ export default function UsersTab() {
         </button>
       </div>
 
-      {shareEnabled !== false && (
-        <ShareLinkRolesSection onChanged={() => api.get('/users').then(setUsers)} />
-      )}
-
       {showAddForm && (
         <AddUserForm
           passwordAuthEnabled={passwordAuthEnabled}
@@ -193,7 +189,7 @@ export default function UsersTab() {
           {error}
           <button
             onClick={() => setError('')}
-            aria-label="Dismiss error"
+            aria-label={t('common.dismissError')}
             style={{
               background: 'none',
               border: 'none',
@@ -258,11 +254,13 @@ export default function UsersTab() {
 
       {/* `users` lets the merge picker offer permanent accounts as a target, so
           a guest can be folded into the real account that person already has. */}
-      <GuestsSection
-        passwordAuthEnabled={passwordAuthEnabled}
-        users={users}
-        onConverted={handleGuestConverted}
-      />
+      <SettingsSection id="guests">
+        <GuestsSection
+          passwordAuthEnabled={passwordAuthEnabled}
+          users={users}
+          onConverted={handleGuestConverted}
+        />
+      </SettingsSection>
     </div>
   )
 }

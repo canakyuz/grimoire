@@ -98,7 +98,9 @@
     "versions": "Versioni",
     "clearSearch": "Pulisci la ricerca",
     "removeLink": "Rimuovi link",
-    "newBadge": "Nuovo"
+    "newBadge": "Nuovo",
+    "dismissError": "Ignora l'errore",
+    "confirm": "Conferma"
   },
   "login": {
     "username": "Nome utente",
@@ -465,7 +467,7 @@
     "archiveFolder": "{{folder}} (tag “{{tag}}”)"
   },
   "files": {
-    "title": "Gestione file della libreria",
+    "title": "Gestione file",
     "sectionDescription": "Sposta, rinomina e organizza i file della tua libreria senza uscire da Grimoire. Gli spostamenti conservano tag, preferiti, avanzamento di lettura e collegamenti alle campagne di ogni elemento.",
     "open": "Apri gestione file",
     "description": "Sposta, rinomina e organizza la tua libreria. Espandi le cartelle sul posto e trascina gli elementi su una cartella per spostarli: tag, preferiti, avanzamento e collegamenti alle campagne seguono il file. Le modifiche vengono applicate immediatamente su disco.",
@@ -713,8 +715,8 @@
       "createLink": "Crea link di condivisione",
       "linkHint": "OTFBM scarica lo sfondo da questo link ogni volta che disegna la mappa, quindi il tuo server Grimoire deve essere raggiungibile da internet.",
       "linkLabel": "Sfondo OTFBM ({{cell}} px)",
-      "linkUntil": "Usa il tuo link di condivisione, che scade il {{when}}. Gestiscilo in Impostazioni → Account → Condivisione.",
-      "linkForever": "Usa il tuo link di condivisione, che non scade mai. Gestiscilo in Impostazioni → Account → Condivisione.",
+      "linkUntil": "Usa il tuo link di condivisione, che scade il {{when}}. Gestiscilo in Impostazioni → Connessioni.",
+      "linkForever": "Usa il tuo link di condivisione, che non scade mai. Gestiscilo in Impostazioni → Connessioni.",
       "selfHost": "Oppure ospitala tu:"
     },
     "vtt": {
@@ -1025,20 +1027,209 @@
   },
   "settings": {
     "title": "Impostazioni",
-    "tabs": {
-      "account": "Account",
-      "users": "Utenti",
-      "authentication": "Autenticazione",
-      "application": "Applicazione",
-      "maintenance": "Manutenzione",
-      "logs": "Log",
-      "metadata": "Metadati",
-      "addons": "Add-on"
-    },
     "quickActions": {
       "label": "Azioni rapide",
       "rescan": "Riscansiona",
       "fileManager": "Gestione file"
+    },
+    "nav": {
+      "label": "Sezioni delle impostazioni"
+    },
+    "scopes": {
+      "you": "Tu",
+      "server": "Server"
+    },
+    "areas": {
+      "account": {
+        "title": "Account",
+        "description": "Il tuo nome e la tua email, la password e i dispositivi connessi, e l'eliminazione dell'account."
+      },
+      "preferences": {
+        "title": "Preferenze",
+        "description": "Lingua, tema e come si aprono per te i libri e la libreria."
+      },
+      "connections": {
+        "title": "Connessioni",
+        "description": "App di lettura, chiavi API e link di condivisione: i modi per accedere alla tua libreria dall'esterno di Grimoire."
+      },
+      "overview": {
+        "title": "Panoramica",
+        "description": "Lo stato del server a colpo d'occhio. Ogni riga porta alle impostazioni corrispondenti."
+      },
+      "people": {
+        "title": "Persone",
+        "description": "Gli account su questo server, i loro ruoli e permessi, e gli ospiti invitati dai GM."
+      },
+      "access": {
+        "title": "Accesso e condivisione",
+        "description": "Cosa possono raggiungere le persone su tutto il server: link di condivisione per ruolo, categorie riservate, caricamenti nelle campagne e chiavi API."
+      },
+      "sign-in": {
+        "title": "Accesso",
+        "description": "Come si accede: password, single sign-on, codici ospite e il messaggio nella pagina di accesso."
+      },
+      "library": {
+        "title": "Libreria",
+        "description": "La scansione della cartella della libreria, come vengono letti file e cartelle, e gli strumenti per riordinarli."
+      },
+      "catalogue": {
+        "title": "Metadati",
+        "description": "Da dove arrivano i dettagli di libri e sistemi - Grimoire Codex DB e gli elenchi proposti negli editor - e i file sidecar scritti accanto ai tuoi libri."
+      },
+      "addons": {
+        "title": "Add-on",
+        "description": "Add-on della community - scraper di metadati, importatori di personaggi, temi - e i pacchetti di contenuti installati da essi."
+      },
+      "sidebar": {
+        "title": "Barra laterale",
+        "description": "Quali sezioni e statistiche la barra laterale mostra a tutti."
+      },
+      "backups": {
+        "title": "Backup",
+        "description": "Esegui il backup del database e dei file di Grimoire manualmente o in base a una pianificazione, e scarica o rimuovi i backup vecchi."
+      },
+      "logs": {
+        "title": "Log",
+        "description": "Cosa sta facendo il server, in tempo reale, filtrato per livello, utente o testo."
+      }
+    },
+    "groups": {
+      "profile": "Profilo",
+      "security": "Password e sessioni",
+      "securityDesc": "Cambia la password e controlla quali dispositivi sono connessi.",
+      "look": "Lingua e tema",
+      "reading": "Lettura e navigazione",
+      "readingDesc": "Come si aprono i libri, come la libreria elenca gli elementi e quali contenuti vedi.",
+      "scanning": "Scansione",
+      "filesAndFolders": "File e cartelle",
+      "filesAndFoldersDesc": "Come Grimoire ricava categorie, titoli e versioni dall'organizzazione della tua libreria.",
+      "tools": "Strumenti della libreria",
+      "sidecars": "File sidecar"
+    },
+    "entries": {
+      "theme": "Tema",
+      "themeDesc": "Chiaro o scuro, e quale tema, compresi i temi della community.",
+      "apiKeysDesc": "Consenti a script e app di usare Grimoire a tuo nome, senza la tua password.",
+      "users": "Utenti",
+      "usersDesc": "Aggiungi account, modifica ruoli e permessi e imposta le password.",
+      "guestsDesc": "Account con solo codice che i GM hanno invitato alle loro campagne. Convertili, uniscili o rimuovili.",
+      "shareLinkRoles": "Link di condivisione per ruolo",
+      "fileManager": "Gestione file",
+      "fileManagerDesc": "Sposta, rinomina e riorganizza i file della tua libreria.",
+      "contentPacksDesc": "Contenuti per personaggi installati dagli add-on: classi, incantesimi, oggetti. Rimuovi un pacchetto per disinstallarlo."
+    },
+    "dangerZone": "Zona pericolosa",
+    "search": {
+      "label": "Cerca nelle impostazioni",
+      "placeholder": "Trova un'impostazione",
+      "clear": "Pulisci la ricerca",
+      "noResults": "Nessun risultato per «{{query}}».",
+      "resultCount_one": "{{count}} impostazione trovata",
+      "resultCount_other": "{{count}} impostazioni trovate"
+    },
+    "unsaved": {
+      "title": "Uscire senza salvare?",
+      "message": "Questa pagina ha modifiche non salvate. Se esci ora, andranno perse.",
+      "leave": "Ignora modifiche"
+    },
+    "overview": {
+      "open": "Apri",
+      "unavailable": "Impossibile caricare.",
+      "library": {
+        "watching": "Rilevamento modifiche attivo",
+        "notWatching": "Rilevamento modifiche non attivo",
+        "schedule": "Nuova scansione pianificata: {{interval}}, alle {{time}}",
+        "noSchedule": "Nessuna scansione pianificata",
+        "watchUnavailable": "Il rilevamento non funziona: apri Libreria per vedere perché"
+      },
+      "backups": {
+        "last": "Ultimo backup {{when}}",
+        "none": "Ancora nessun backup",
+        "kept_one": "{{count}} backup conservato",
+        "kept_other": "{{count}} backup conservati",
+        "scheduled": "Automatico: {{interval}}",
+        "manual": "Solo manuale"
+      },
+      "signIn": {
+        "both": "Password e single sign-on",
+        "ssoOnly": "Solo single sign-on",
+        "passwordOnly": "Solo password",
+        "guestsOn": "Codici ospite consentiti",
+        "guestsOff": "Codici ospite disattivati",
+        "ssoIncomplete": "Il single sign-on è attivo ma non è configurato del tutto"
+      },
+      "people": {
+        "users_one": "{{count}} utente",
+        "users_other": "{{count}} utenti",
+        "guests_one": "{{count}} ospite",
+        "guests_other": "{{count}} ospiti"
+      },
+      "addons": {
+        "installed_one": "{{count}} add-on installato",
+        "installed_other": "{{count}} add-on installati",
+        "updates_one": "{{count}} aggiornamento disponibile",
+        "updates_other": "{{count}} aggiornamenti disponibili"
+      },
+      "codex": {
+        "connected": "Connesso"
+      }
+    },
+    "keywords": {
+      "account": "profilo, utente, io, account",
+      "display-name": "nome, soprannome, nickname, nome utente",
+      "email": "mail, posta, indirizzo",
+      "change-password": "password, reimposta, cambia",
+      "sessions": "dispositivi, esci, disconnetti, logout, connesso",
+      "delete-account": "rimuovi, elimina, chiudi account",
+      "language": "lingua, traduzione, inglese, tedesco, francese, spagnolo, italiano",
+      "theme": "modalità scura, modalità chiara, dark mode, colori, aspetto, skin",
+      "reader": "lettore, visualizzatore, pdf, scorrimento, pagina",
+      "library-browsing": "ordina, griglia, elenco, vista predefinita",
+      "content-preferences": "esplicito, nsfw, adulti, per adulti",
+      "opds": "e-reader, kavita, panels, chunky, feed, ebook",
+      "api-keys": "token, integrazione, homepage, script",
+      "share-links": "link pubblico, condividi, condivisione",
+      "users": "account, ruoli, permessi, admin, gm, giocatore, aggiungi utente",
+      "guests": "codici d'invito, unisci, ospiti",
+      "share-link-roles": "permessi, condivisione",
+      "category-access": "limita, esplicito, permessi, nascondi categoria",
+      "campaign-uploads": "limiti di caricamento, upload, quota, dimensione file",
+      "all-api-keys": "token, revoca",
+      "password-sign-in": "login, accesso, account locali",
+      "oidc": "sso, single sign-on, openid, keycloak, authentik, authelia, google, pulsante di accesso",
+      "guest-access": "codici d'invito, ospiti",
+      "login-message": "pagina di accesso, login, banner, avviso, termini",
+      "rescan": "scansiona, riscansiona, indice, aggiorna",
+      "watch": "automatico, monitoraggio file, inotify, nfs, smb",
+      "scheduled-rescan": "pianificazione, pianificata, notturna",
+      "folder-category": "categoria, manuali di base, supplementi, cartelle",
+      "folder-naming": "nome file, titolo, schema",
+      "variant-rules": "senza griglia, stampabile, versioni",
+      "file-manager": "sposta, rinomina, organizza",
+      "duplicates": "copie, duplicati, unisci",
+      "cleanup": "file mancanti, rimuovi, pulizia, database",
+      "genres": "tag, generi, elenco di valori",
+      "system-families": "famiglie di sistemi, elenco di valori",
+      "parent-systems": "elenco di valori, edizione",
+      "licenses": "ogl, creative commons, orc, licenze, elenco di valori",
+      "dice-materials": "dadi, materiali, elenco di valori",
+      "sidecars": "opf, nfo, json, yaml, esporta, file di metadati, sidecar",
+      "codex": "fonte dei metadati",
+      "community-addons": "scraper, importatori, plugin, estensioni, fonti, temi",
+      "content-packs": "classi, incantesimi, personaggi",
+      "sidebar-visibility": "nascondi, menu, navigazione",
+      "sidebar-stats": "statistiche, conteggi, piè di pagina",
+      "backup-list": "backup, ripristina, scarica, zip",
+      "backup-schedule": "backup automatico, conservazione, archiviazione",
+      "logs": "debug, errori",
+      "overview": "stato, dashboard"
+    },
+    "save": {
+      "failed": "Non salvato - {{message}}",
+      "offline": "Non salvato - impossibile raggiungere il server. Controlla la connessione e riprova.",
+      "loadFailed": "Impossibile caricare queste impostazioni - {{message}}",
+      "loadOffline": "Impossibile caricare queste impostazioni - impossibile raggiungere il server. Controlla la connessione e riprova.",
+      "retry": "Riprova"
     }
   },
   "authSettings": {
@@ -1052,7 +1243,12 @@
       "title": "Autenticazione con password",
       "description": "Consenti agli utenti di accedere con nome utente e password. Disattivandola, tutti gli accessi con password verranno bloccati.",
       "enable": "Abilita l'autenticazione con password",
-      "envLocked": "Bloccato dalla variabile d'ambiente ALLOW_PASSWORD_AUTHENTICATION (valore attuale: {{value}})."
+      "envLocked": "Bloccato dalla variabile d'ambiente ALLOW_PASSWORD_AUTHENTICATION (valore attuale: {{value}}).",
+      "confirmOffTitle": "Disattivare l'accesso con password?",
+      "confirmOffMessage": "Tutti, admin compresi, dovranno accedere con il single sign-on. Se il single sign-on smette di funzionare, imposta la variabile d'ambiente ALLOW_PASSWORD_AUTHENTICATION su true e riavvia Grimoire per riattivare l'accesso con password.",
+      "confirmOff": "Disattiva l'accesso con password",
+      "needsOidc": "L'accesso con password non può essere disattivato finché il single sign-on non è configurato: altrimenti nessuno potrebbe accedere.",
+      "setUpOidc": "Configura prima il single sign-on"
     },
     "oidc": {
       "title": "Autenticazione OpenID Connect",
@@ -1089,7 +1285,6 @@
       "signingAlgUnsupportedHint": "Questo algoritmo non può verificare gli accessi del tuo provider, quindi il single sign-on non funzionerà finché non scegli uno degli algoritmi elencati - di solito RS256.",
       "buttonText": "Testo del pulsante",
       "buttonTextHint": "Il testo del pulsante SSO nella schermata di accesso.",
-      "buttonAppearance": "Aspetto del pulsante",
       "buttonAppearanceHint": "Rendi il pulsante uguale al pulsante di accesso ufficiale del tuo provider: carica il suo logo e copia i colori dalle sue linee guida del marchio. Lascia un campo vuoto per mantenere l'aspetto del tema.",
       "buttonPreview": "Anteprima del pulsante",
       "buttonBgColor": "Colore di sfondo",
@@ -1124,7 +1319,16 @@
       "autoLaunchHint": "Reindirizza automaticamente all'IdP quando si visita la pagina di accesso. Aggiungi ?autoLaunch=0 per aggirarlo.",
       "autoRegister": "Registrazione automatica",
       "autoRegisterHint": "Crea automaticamente i nuovi account locali al primo accesso OIDC. Senza questa opzione, gli utenti devono già esistere localmente.",
-      "saveFailed": "Impossibile salvare."
+      "saveFailed": "Impossibile salvare.",
+      "copied": "Copiato",
+      "notConfigured": "L'accesso con single sign-on non funzionerà finché non imposti l'URL dell'emittente, il Client ID e il Client Secret.",
+      "groups": {
+        "provider": "Provider",
+        "client": "Client",
+        "loginButton": "Pulsante di accesso",
+        "roles": "Ruoli e permessi",
+        "behaviour": "Comportamento"
+      }
     },
     "guestAccess": {
       "title": "Accesso ospiti",
@@ -1556,7 +1760,7 @@
       "listLabel": "Link di condivisione",
       "none": "Nessun link di condivisione.",
       "rolesTitle": "Link di condivisione",
-      "rolesHint": "Chi può creare link di condivisione pubblici per impostazione predefinita. L'impostazione del singolo utente nella tabella ha la precedenza.",
+      "rolesHint": "Chi può creare link di condivisione pubblici per impostazione predefinita. L'impostazione della singola persona, in Persone, ha la precedenza.",
       "disabled": "I link di condivisione sono disattivati su questo server (SHARE_LINKS_ENABLED=false).",
       "adminAlways": "Gli admin possono sempre creare link di condivisione",
       "rolesFailed": "Impossibile aggiornare le impostazioni predefinite dei link.",
@@ -1673,8 +1877,7 @@
     },
     "cleanup": {
       "title": "Pulizia del database",
-      "description": "Cerca nel database libri, mappe e token i cui file non esistono più su disco e ne rimuove i record. L'operazione non può essere annullata: una nuova scansione della libreria reimporterà solo i file presenti su disco.",
-      "button": "Rimuovi file mancanti",
+      "description": "Trova libri, mappe, token, audio e modelli 3D i cui file non sono più su disco e ti mostra cosa ha trovato. I loro record vengono rimossi solo dopo la tua conferma. L'operazione non può essere annullata: una nuova scansione reimporta solo i file presenti su disco.",
       "cleaning": "Pulizia…",
       "nothingToRemove": "Niente da rimuovere: il database è pulito.",
       "removed_one": "Rimosso {{count}} record.",
@@ -1685,7 +1888,24 @@
       "maps_other": "{{count}} mappe",
       "tokens_one": "{{count}} token",
       "tokens_other": "{{count}} token",
-      "failed": "Pulizia non riuscita. Controlla i log del server."
+      "failed": "Pulizia non riuscita. Controlla i log del server.",
+      "find": "Trova file mancanti…",
+      "checking": "Verifica in corso…",
+      "allPresent": "Ogni record ha ancora il suo file. Niente da rimuovere.",
+      "unavailableTitle": "La cartella della libreria manca o è vuota",
+      "unavailableBody": "Potrebbe non essere montata. Non è stato rimosso nulla: controlla la cartella della libreria e riprova.",
+      "confirmTitle": "Rimuovere i record dei file mancanti?",
+      "confirmMessage": "Questi record puntano a file che non sono più su disco. La rimozione non può essere annullata e con essi spariscono anche tag, preferiti e progressi di lettura.",
+      "confirmButton_one": "Rimuovi {{count}} record",
+      "confirmButton_other": "Rimuovi {{count}} record",
+      "ofTotal": "(su {{total}})",
+      "wholeKindWarning": "Per almeno un tipo, a tutti i record manca il file. Se una parte della libreria non è montata, annulla e controllala prima.",
+      "audio_one": "{{count}} file audio",
+      "audio_other": "{{count}} file audio",
+      "models_one": "{{count}} modello 3D",
+      "models_other": "{{count}} modelli 3D",
+      "offline": "Impossibile raggiungere il server. Controlla la connessione e riprova.",
+      "failedWithReason": "Pulizia non riuscita - {{message}}"
     },
     "sidecars": {
       "title": "Sidecar dei metadati",
@@ -3250,7 +3470,7 @@
       "dark": "Scuro",
       "system": "Sistema"
     },
-    "yourThemes": "Tema",
+    "yourThemes": "Temi installati",
     "community": "Community",
     "browse": "Sfoglia i temi della community",
     "import": "Importa un tema",
@@ -3703,7 +3923,9 @@
     "confirmUninstall": "Disinstallare \"{{name}}\" da questo server? I personaggi mantengono i riferimenti e li mostrano come non installati finché non torna. I set di regole che lo hanno importato mantengono la propria copia.",
     "installedHelp": "Installati per tutti su questo server. Ogni personaggio con una scheda compatibile può usare subito i contenuti di un pacchetto.",
     "emptyInstalled": "Ancora nessun pacchetto di contenuti installato. Sfoglia i pacchetti di contenuti per aggiungerne uno.",
-    "forSheet": "Per {{sheet}}"
+    "forSheet": "Per {{sheet}}",
+    "confirmUninstallTitle": "Disinstallare il pacchetto di contenuti?",
+    "uninstallConfirm": "Disinstalla"
   },
   "rulesets": {
     "title": "Raccolte di regole",

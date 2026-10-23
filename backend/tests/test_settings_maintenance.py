@@ -3,6 +3,7 @@ import uuid
 from typing import Optional
 from unittest.mock import patch
 
+import pytest
 
 from backend.tests.conftest import (
     live_scan_status,
@@ -15,6 +16,10 @@ from backend.tests.conftest import (
 )
 from backend.config import SessionLocal
 from backend.models import AppSetting, Bookmark, GameSystem
+
+# What cleanup removes is tested here with the unmounted-library guard out of the
+# way; the guard itself is covered in test_cleanup_guard.py.
+pytestmark = pytest.mark.usefixtures("library_mounted")
 
 
 # ---------------------------------------------------------------------------

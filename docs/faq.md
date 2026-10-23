@@ -118,7 +118,7 @@ volumes:
 
 This lets you keep your existing file structure on the host without adding an extra `books/` folder. After updating the compose file, restart the stack and trigger a rescan from the admin panel.
 
-> **Note:** "Remove missing files" deletes database records for files that can't be found at their expected paths. If you moved files around on the host before the volume mount was correct, those records were removed. Re-mounting correctly and rescanning will re-add everything.
+> **Note:** "Remove missing files" deletes database records for files that can't be found at their expected paths. If you moved files around on the host before the volume mount was correct, those records were removed. Re-mounting correctly and rescanning will re-add everything. Cleanup now refuses to run while the library folder is missing or empty, so a mount that isn't there at all can no longer wipe the library this way.
 >
 > Moving files *within* a correctly-mounted library is safe: a rescan matches them by content and keeps their tags, favorites, bookmarks, and reading progress rather than treating the move as a deletion. The caveat above applies to records already removed, which have nothing left to match against.
 
@@ -149,9 +149,9 @@ Grimoire scans the library each time it starts, so files added while it was down
 - **A very large library**, or one on a slow network share, where even checking every file takes a while.
 - **Queued work from earlier.** The startup scan also works through text recognition (OCR) of scanned books and previews of large models that an earlier scan left queued, and OCR of a big scanned collection can take hours.
 
-Press **Stop** under Settings → Maintenance to end it. The scan stops at the next file or page, and queued OCR picks up where it left off on the next scan. Once it has stopped you can rescan a single folder.
+Press **Stop** under Settings → Library → Scanning to end it. The scan stops at the next file or page, and queued OCR picks up where it left off on the next scan. Once it has stopped you can rescan a single folder.
 
-If restarts are mostly for image updates or setting changes, set `STARTUP_SCAN=false` (see [Configuration](configuration.md)). Grimoire then starts without scanning. New files still appear as they arrive while the library is [watched for changes](file-management.md#watching-for-changes); without that they wait for a manual rescan or one set under Settings → Maintenance → Scheduled Rescan.
+If restarts are mostly for image updates or setting changes, set `STARTUP_SCAN=false` (see [Configuration](configuration.md)). Grimoire then starts without scanning. New files still appear as they arrive while the library is [watched for changes](file-management.md#watching-for-changes); without that they wait for a manual rescan or one set under Settings → Library → Scanning → Scheduled Rescan.
 
 With more than one worker (`WORKERS=2`), set `VALKEY_URL` as well. **Stop** reaches the startup scan whichever worker runs it, but without Valkey each worker keeps its own scan progress, so the progress shown can jump between the two - see [Workers](performance.md#workers).
 
@@ -225,7 +225,7 @@ Past about 200% the page sharpens in patches a moment after you stop zooming or 
 
 ## Can I make the scroll wheel zoom instead of turning pages?
 
-Yes - **Settings → Reader → Scroll wheel** offers three choices:
+Yes - **Settings → Preferences → Reader → Scroll wheel** offers three choices:
 
 - **Turn pages** - scrolling moves through the book (the default)
 - **Zoom** - scrolling zooms in and out, centred on the cursor
@@ -307,16 +307,16 @@ In your Authentik OAuth2/OIDC provider:
 
 ### 4. Configure Grimoire
 
-In Grimoire **Settings → Authentication**:
+In Grimoire **Settings → Sign-in**:
 
-1. Set **Issuer URL** to your Authentik application's issuer (e.g. `https://authentik.example.com/application/o/<app-slug>/`) and click **Autopopulate**.
+1. Tick **Enable OpenID Connect** - the rest of the fields appear once it is on.
+2. Set **Issuer URL** to your Authentik application's issuer (e.g. `https://authentik.example.com/application/o/<app-slug>/`) and click **Autopopulate**.
    > Authentik's token issuer often differs from the provider URL. If login fails with an issuer mismatch, copy the `iss` value from a decoded token and paste it into the **Token Issuer** field.
-2. Paste your **Client ID** and **Client Secret**.
-3. Register the displayed **Redirect URI** in your Authentik provider.
-4. Set **Groups Claim** to `groups`.
-5. Set **Advanced Permissions Claim** to `permissions`.
-6. Enable **Auto-register** if you want accounts created automatically on first login.
-7. Enable **OpenID Connect**.
+3. Paste your **Client ID** and **Client Secret**.
+4. Register the displayed **Redirect URI** in your Authentik provider.
+5. Set **Groups Claim** to `groups`.
+6. Set **Advanced Permissions Claim** to `permissions`.
+7. Enable **Auto-register** if you want accounts created automatically on first login.
 
 ---
 
@@ -341,7 +341,7 @@ Google works with Grimoire's built-in OIDC client — no intermediary IdP needed
 
 ### 2. Configure Grimoire
 
-In **Settings → Authentication**:
+In **Settings → Sign-in**, tick **Enable OpenID Connect** (the fields below appear once it is on), then:
 
 1. Set **Issuer URL** to `https://accounts.google.com` and click **Autopopulate** — or enter the endpoints by hand:
 
@@ -362,7 +362,7 @@ In **Settings → Authentication**:
 - **Match by: email** with **Auto-register OFF** — recommended for a personal library. The user table becomes your allowlist: create each person a user with their Google account email (password can be left empty — the account is OIDC-only). Anyone else who signs in at Google is rejected with *"no matching user and auto-register is disabled"* and gets no session.
 - **Auto-register ON** means *any* Google account on Earth can create itself a user. Only do that behind some other gate.
 
-Password login can then be disabled (Settings, or the `ALLOW_PASSWORD_AUTHENTICATION` environment variable). Tip: keep one password-capable admin documented somewhere safe — re-enabling that variable is your recovery path if the OAuth client ever breaks.
+Password login can then be disabled (**Settings → Sign-in → Password Authentication**, or the `ALLOW_PASSWORD_AUTHENTICATION` environment variable). The in-app switch only turns off once single sign-on is configured, so you can't lock everyone out by accident, and OpenID Connect can't be turned off while password login is off. Tip: keep one password-capable admin documented somewhere safe — re-enabling that variable is your recovery path if the OAuth client ever breaks.
 
 ### If you pin the settings by environment variable instead
 

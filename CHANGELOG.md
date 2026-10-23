@@ -13,11 +13,23 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Sending a book or system to Grimoire Codex DB compares it with Grimoire Codex DB first and ticks the fields that differ, showing both values, so a correction is one click
 - The cover can be sent along: a book's first page, rendered sharper than its library thumbnail, or a system's cover art. It is ticked when Grimoire Codex DB has none
 - Pick the scraper a record's data came from as its source. Grimoire fills in the record's page on that site and credits the description and tags to it on Grimoire Codex DB
-- A v2 OPDS feed lists each game system as its own category, next to All Books. Choose v1 or v2 from the Feed version dropdown under Settings → Account → OPDS Feed; the original v1 URL keeps working unchanged for apps already using it
+- A v2 OPDS feed lists each game system as its own category, next to All Books. Choose v1 or v2 from the Feed version dropdown under Settings → Connections → OPDS Feed; the original v1 URL keeps working unchanged for apps already using it
+- Search Settings from any page of it: press `/` or Ctrl/⌘K, type what you're after ("SSO", "dark mode", "backups") and go straight to it
+- Every setting has its own link, such as `/settings/backups#backup-schedule`, that opens its group, scrolls to it and highlights it
+- Admins land on an Overview of the server: scanning and watching, the last backup, how people sign in, users and guests, and add-on updates, each linked to its settings
+- Settings asks before you leave a page with changes you haven't saved
 - Fetch metadata can read a book's own file: **File metadata** offers the title, authors, description, tags, language, date and ISBN written into a PDF, an EPUB, or a comic's `ComicInfo.xml`, with no add-on or internet connection needed
+
+### Changed
+
+- Settings is reorganised into areas listed down the side: **You** (Account, Preferences, Connections) for everyone, and **Server** (Overview, People, Access & sharing, Sign-in, Library, Metadata, Add-ons, Sidebar, Backups, Logs) for admins. Each setting now has one home, and old links such as `/settings/maintenance` still land in the right place
+- Long lists such as genres and licences start closed, single sign-on's detailed fields appear once it is turned on, and the area list becomes a dropdown on phones so the current page is always visible
+- Database Cleanup shows how many records it would remove and asks before removing them. It refuses, and the cleanup after a scheduled rescan skips, when the library folder is missing or empty, as an unmounted network share would be
+- Password sign-in can't be turned off until single sign-on is set up, and single sign-on can't be turned off while password sign-in is off, so no one can be locked out
 
 ### Fixed
 
+- A sign-in or sidebar setting that fails to save goes back to its previous value instead of showing a change that never happened
 - Script add-ons that need an API token from the server's environment, such as `BGG_API_TOKEN` for the RPGGeek scrapers, receive it. An add-on names the variables it needs, and Grimoire's own credentials are still withheld
 - A book whose game system is not in Grimoire Codex DB yet can be sent: choose the matching Grimoire Codex DB system, or send the system along with it
 - New books and systems no longer need a note before they can be sent; a source link does the job, and Grimoire Codex DB asks only accounts it does not trust yet

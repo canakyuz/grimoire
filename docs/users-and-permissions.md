@@ -14,7 +14,7 @@ players' hands.
 | `player` | Read-only access, personal campaigns, session notes |
 | `guest` | Code-only account scoped to a single campaign. No access to the library, maps, tokens, audio, or search. See [Guest invites](campaigns.md#guest-invites). |
 
-Create additional accounts in **Settings → Users** after logging in as admin.
+Create additional accounts in **Settings → People** after logging in as admin.
 
 ---
 
@@ -50,7 +50,7 @@ book  →  system  →  category default  →  everyone
   how a free player's guide can sit in an otherwise admin-only adventure line.
 - **A whole system** - in the system editor. Restricting a system hides the system
   itself along with every book in it that has no setting of its own.
-- **A whole category** - in **Settings → Application → Category Restrictions**.
+- **A whole category** - in **Settings → Access & sharing → Category Restrictions**.
   This is the library-wide default for that category. Core rulebooks and character
   sheets cannot be restricted: everyone at the table needs those by definition.
 
@@ -59,7 +59,7 @@ Only admins can change any of these, including in bulk edit.
 ### Granting one GM access
 
 A locked-down library still needs the GM running the campaign to reach their own
-material. In **Settings → Users**, expand a GM's row and use **Library access
+material. In **Settings → People**, expand a GM's row and use **Library access
 grants** to give that person access to a specific system or book without lowering
 the restriction for anyone else.
 
@@ -78,7 +78,7 @@ are demoted to GM-only for you.
 
 ## Seeing who has been active
 
-The users list under **Settings → Users** has a **Last active** column - "12 minutes
+The users list under **Settings → People** has a **Last active** column - "12 minutes
 ago", "2 months ago", or "Never" for an account that has not signed in. It fades as it
 ages, so people who have drifted away stand out. Hover it for the exact times, or
 expand the user for when they last signed in and were last active.

@@ -98,7 +98,9 @@
     "versions": "Versões",
     "clearSearch": "Limpar pesquisa",
     "removeLink": "Remover link",
-    "newBadge": "Novo"
+    "newBadge": "Novo",
+    "dismissError": "Dispensar erro",
+    "confirm": "Confirmar"
   },
   "login": {
     "username": "Nome de usuário",
@@ -713,8 +715,8 @@
       "createLink": "Criar link de compartilhamento",
       "linkHint": "O OTFBM busca o fundo neste link toda vez que desenha o mapa, então seu servidor Grimoire precisa estar acessível pela internet.",
       "linkLabel": "Fundo do OTFBM ({{cell}} px)",
-      "linkUntil": "Usa seu link de compartilhamento, que expira em {{when}}. Gerencie em Configurações → Conta → Compartilhamento.",
-      "linkForever": "Usa seu link de compartilhamento, que nunca expira. Gerencie em Configurações → Conta → Compartilhamento.",
+      "linkUntil": "Usa seu link de compartilhamento, que expira em {{when}}. Gerencie em Configurações → Conexões.",
+      "linkForever": "Usa seu link de compartilhamento, que nunca expira. Gerencie em Configurações → Conexões.",
       "selfHost": "Ou hospede você mesmo:"
     },
     "vtt": {
@@ -1025,20 +1027,209 @@
   },
   "settings": {
     "title": "Configurações",
-    "tabs": {
-      "account": "Conta",
-      "users": "Usuários",
-      "authentication": "Autenticação",
-      "application": "Aplicativo",
-      "maintenance": "Manutenção",
-      "logs": "Logs",
-      "metadata": "Metadata",
-      "addons": "Extras"
-    },
     "quickActions": {
       "label": "Ações rápidas",
       "rescan": "Reescanear",
       "fileManager": "Gerenciador de arquivos"
+    },
+    "nav": {
+      "label": "Seções das configurações"
+    },
+    "scopes": {
+      "you": "Você",
+      "server": "Servidor"
+    },
+    "areas": {
+      "account": {
+        "title": "Conta",
+        "description": "Seu nome e e-mail, sua senha e dispositivos conectados, e a exclusão da sua conta."
+      },
+      "preferences": {
+        "title": "Preferências",
+        "description": "Idioma, tema e como os livros e a biblioteca abrem para você."
+      },
+      "connections": {
+        "title": "Conexões",
+        "description": "Aplicativos de leitura, chaves de API e links de compartilhamento - as formas de acessar sua biblioteca de fora do Grimoire."
+      },
+      "overview": {
+        "title": "Visão geral",
+        "description": "A situação do servidor em um relance. Cada linha leva às configurações correspondentes."
+      },
+      "people": {
+        "title": "Pessoas",
+        "description": "As contas deste servidor, suas funções e permissões, e os convidados chamados pelos mestres."
+      },
+      "access": {
+        "title": "Acesso e compartilhamento",
+        "description": "O que as pessoas podem acessar em todo o servidor: links de compartilhamento por função, categorias restritas, uploads de campanha e chaves de API."
+      },
+      "sign-in": {
+        "title": "Login",
+        "description": "Como as pessoas entram: senhas, login único (SSO), códigos de convidado e a mensagem na página de login."
+      },
+      "library": {
+        "title": "Biblioteca",
+        "description": "A varredura da pasta da biblioteca, como arquivos e pastas são lidos e as ferramentas para organizá-los."
+      },
+      "catalogue": {
+        "title": "Metadados",
+        "description": "De onde vêm os detalhes de livros e sistemas - o Grimoire Codex DB e as listas oferecidas nos editores - e os arquivos complementares gravados ao lado dos seus livros."
+      },
+      "addons": {
+        "title": "Extras",
+        "description": "Extras da comunidade - extratores de metadados, importadores de personagens, temas - e os pacotes de conteúdo instalados a partir deles."
+      },
+      "sidebar": {
+        "title": "Barra lateral",
+        "description": "Quais seções e estatísticas a barra lateral mostra para todos."
+      },
+      "backups": {
+        "title": "Backups",
+        "description": "Faça backup do banco de dados e dos arquivos do próprio Grimoire manualmente ou por agendamento, e baixe ou remova backups antigos."
+      },
+      "logs": {
+        "title": "Logs",
+        "description": "O que o servidor vem fazendo, ao vivo, filtrado por nível, usuário ou texto."
+      }
+    },
+    "groups": {
+      "profile": "Perfil",
+      "security": "Senha e sessões",
+      "securityDesc": "Altere sua senha e veja quais dispositivos estão conectados.",
+      "look": "Idioma e tema",
+      "reading": "Leitura e navegação",
+      "readingDesc": "Como os livros abrem, como a biblioteca lista os itens e qual conteúdo você vê.",
+      "scanning": "Varredura",
+      "filesAndFolders": "Arquivos e pastas",
+      "filesAndFoldersDesc": "Como o Grimoire extrai categorias, títulos e versões da organização da sua biblioteca.",
+      "tools": "Ferramentas da biblioteca",
+      "sidecars": "Arquivos complementares"
+    },
+    "entries": {
+      "theme": "Tema",
+      "themeDesc": "Claro ou escuro, e qual tema - incluindo temas da comunidade.",
+      "apiKeysDesc": "Permita que scripts e aplicativos usem o Grimoire em seu nome, sem a sua senha.",
+      "users": "Usuários",
+      "usersDesc": "Adicione contas, altere funções e permissões e defina senhas.",
+      "guestsDesc": "Contas só com código que os mestres convidaram para suas campanhas. Converta, mescle ou remova essas contas.",
+      "shareLinkRoles": "Links de compartilhamento por função",
+      "fileManager": "Gerenciador de arquivos",
+      "fileManagerDesc": "Mova, renomeie e reorganize os arquivos da sua biblioteca.",
+      "contentPacksDesc": "Conteúdo de personagem instalado a partir de extras - classes, magias, itens. Remova um pacote para desinstalá-lo."
+    },
+    "dangerZone": "Zona de perigo",
+    "search": {
+      "label": "Buscar nas configurações",
+      "placeholder": "Encontrar uma configuração",
+      "clear": "Limpar busca",
+      "noResults": "Nada corresponde a “{{query}}”.",
+      "resultCount_one": "{{count}} configuração encontrada",
+      "resultCount_other": "{{count}} configurações encontradas"
+    },
+    "unsaved": {
+      "title": "Sair sem salvar?",
+      "message": "Esta página tem alterações que você não salvou. Se sair agora, elas serão descartadas.",
+      "leave": "Descartar alterações"
+    },
+    "overview": {
+      "open": "Abrir",
+      "unavailable": "Não foi possível carregar.",
+      "library": {
+        "watching": "Acompanhando alterações",
+        "notWatching": "Sem acompanhar alterações",
+        "schedule": "Reescaneamento agendado: {{interval}}, às {{time}}",
+        "noSchedule": "Nenhum reescaneamento agendado",
+        "watchUnavailable": "O acompanhamento não está funcionando - abra Biblioteca para ver o motivo"
+      },
+      "backups": {
+        "last": "Último backup {{when}}",
+        "none": "Nenhum backup ainda",
+        "kept_one": "{{count}} backup mantido",
+        "kept_other": "{{count}} backups mantidos",
+        "scheduled": "Automático: {{interval}}",
+        "manual": "Somente manual"
+      },
+      "signIn": {
+        "both": "Senha e login único",
+        "ssoOnly": "Somente login único",
+        "passwordOnly": "Somente senha",
+        "guestsOn": "Códigos de convidado permitidos",
+        "guestsOff": "Códigos de convidado desativados",
+        "ssoIncomplete": "O login único está ativado, mas não está totalmente configurado"
+      },
+      "people": {
+        "users_one": "{{count}} usuário",
+        "users_other": "{{count}} usuários",
+        "guests_one": "{{count}} convidado",
+        "guests_other": "{{count}} convidados"
+      },
+      "addons": {
+        "installed_one": "{{count}} extra instalado",
+        "installed_other": "{{count}} extras instalados",
+        "updates_one": "{{count}} atualização disponível",
+        "updates_other": "{{count}} atualizações disponíveis"
+      },
+      "codex": {
+        "connected": "Conectado"
+      }
+    },
+    "keywords": {
+      "account": "perfil, usuário, eu, conta",
+      "display-name": "nome, apelido, nome de usuário",
+      "email": "e-mail, correio, endereço",
+      "change-password": "senha, redefinir, alterar",
+      "sessions": "dispositivos, sair, desconectar, logout, conectado",
+      "delete-account": "remover, excluir, encerrar conta",
+      "language": "idioma, tradução, inglês, alemão, francês, espanhol, português",
+      "theme": "modo escuro, modo claro, dark mode, cores, aparência, skin",
+      "reader": "leitor, visualizador, pdf, rolagem, página",
+      "library-browsing": "ordenar, grade, lista, visualização padrão",
+      "content-preferences": "explícito, nsfw, adulto, conteúdo adulto",
+      "opds": "e-reader, leitor de e-books, kavita, panels, chunky, feed, ebook",
+      "api-keys": "token, integração, homepage, script",
+      "share-links": "link público, compartilhar",
+      "users": "contas, funções, permissões, admin, mestre, gm, jogador, adicionar usuário",
+      "guests": "códigos de convite, mesclar, convidados",
+      "share-link-roles": "permissões, compartilhamento",
+      "category-access": "restringir, explícito, permissões, ocultar categoria",
+      "campaign-uploads": "limites de upload, cota, tamanho de arquivo",
+      "all-api-keys": "tokens, revogar",
+      "password-sign-in": "login, entrar, contas locais",
+      "oidc": "sso, login único, openid, keycloak, authentik, authelia, google, botão de login",
+      "guest-access": "códigos de convite, convidados",
+      "login-message": "página de login, banner, aviso, termos",
+      "rescan": "escanear, reescanear, índice, atualizar",
+      "watch": "automático, monitoramento de arquivos, inotify, nfs, smb",
+      "scheduled-rescan": "agendamento, agendado, noturno",
+      "folder-category": "categoria, livros principais, suplementos, pastas",
+      "folder-naming": "nome de arquivo, título, padrão",
+      "variant-rules": "sem grade, para impressão, versões",
+      "file-manager": "mover, renomear, organizar",
+      "duplicates": "cópias, duplicados, mesclar",
+      "cleanup": "arquivos ausentes, remover, limpar, banco de dados",
+      "genres": "tags, gêneros, lista de valores",
+      "system-families": "famílias de sistemas, lista de valores",
+      "parent-systems": "lista de valores, edição",
+      "licenses": "ogl, creative commons, orc, licenças, lista de valores",
+      "dice-materials": "dados, materiais, lista de valores",
+      "sidecars": "opf, nfo, json, yaml, exportar, arquivos de metadados, sidecar",
+      "codex": "fonte de metadados",
+      "community-addons": "extratores, scrapers, importadores, plugins, extensões, add-ons, fontes, temas",
+      "content-packs": "classes, magias, personagens",
+      "sidebar-visibility": "ocultar, menu, navegação",
+      "sidebar-stats": "estatísticas, contagens, rodapé",
+      "backup-list": "backup, restaurar, baixar, zip",
+      "backup-schedule": "backup automático, retenção, armazenamento",
+      "logs": "depuração, debug, erros",
+      "overview": "status, painel, dashboard"
+    },
+    "save": {
+      "failed": "Não salvo - {{message}}",
+      "offline": "Não salvo - não foi possível acessar o servidor. Verifique sua conexão e tente novamente.",
+      "loadFailed": "Não foi possível carregar estas configurações - {{message}}",
+      "loadOffline": "Não foi possível carregar estas configurações - não foi possível acessar o servidor. Verifique sua conexão e tente novamente.",
+      "retry": "Tentar novamente"
     }
   },
   "authSettings": {
@@ -1052,7 +1243,12 @@
       "title": "Autenticação por senha",
       "description": "Permitir que os usuários entrem com nome de usuário e senha. Desativar isso impedirá todos os logins por senha.",
       "enable": "Ativar autenticação por senha",
-      "envLocked": "Bloqueado pela variável de ambiente ALLOW_PASSWORD_AUTHENTICATION (valor atual: {{value}})."
+      "envLocked": "Bloqueado pela variável de ambiente ALLOW_PASSWORD_AUTHENTICATION (valor atual: {{value}}).",
+      "confirmOffTitle": "Desativar o login com senha?",
+      "confirmOffMessage": "Todos, inclusive os administradores, terão que entrar com login único. Se o login único parar de funcionar, defina a variável de ambiente ALLOW_PASSWORD_AUTHENTICATION como true e reinicie o Grimoire para reativar o login com senha.",
+      "confirmOff": "Desativar o login com senha",
+      "needsOidc": "O login com senha só pode ser desativado depois que o login único estiver configurado - caso contrário, ninguém conseguiria entrar.",
+      "setUpOidc": "Configure o login único primeiro"
     },
     "oidc": {
       "title": "Autenticação OpenID Connect",
@@ -1089,7 +1285,6 @@
       "signingAlgUnsupportedHint": "Este algoritmo não consegue verificar os inícios de sessão do seu fornecedor, por isso o login único falha até escolher um dos algoritmos listados - normalmente RS256.",
       "buttonText": "Texto do botão",
       "buttonTextHint": "O que o botão de SSO na tela de login exibirá.",
-      "buttonAppearance": "Aparência do botão",
       "buttonAppearanceHint": "Deixe o botão igual ao botão oficial de login do seu provedor: envie o logotipo dele e copie as cores das diretrizes da marca. Deixe um campo vazio para manter a aparência do tema.",
       "buttonPreview": "Prévia do botão",
       "buttonBgColor": "Cor de fundo",
@@ -1124,7 +1319,16 @@
       "autoLaunchHint": "Redirecionar automaticamente para o IdP ao acessar a página de login. Adicione ?autoLaunch=0 para ignorar.",
       "autoRegister": "Registrar automaticamente",
       "autoRegisterHint": "Criar automaticamente novas contas locais no primeiro login OIDC. Sem isso, os usuários já precisam existir localmente.",
-      "saveFailed": "Não foi possível salvar."
+      "saveFailed": "Não foi possível salvar.",
+      "copied": "Copiado",
+      "notConfigured": "O login único não vai funcionar até que a URL do emissor, o ID do cliente e o segredo do cliente sejam definidos.",
+      "groups": {
+        "provider": "Provedor",
+        "client": "Cliente",
+        "loginButton": "Botão de login",
+        "roles": "Funções e permissões",
+        "behaviour": "Comportamento"
+      }
     },
     "guestAccess": {
       "title": "Acesso de convidados",
@@ -1556,7 +1760,7 @@
       "listLabel": "Links de compartilhamento",
       "none": "Nenhum link de compartilhamento.",
       "rolesTitle": "Links de compartilhamento",
-      "rolesHint": "Quem pode criar links de compartilhamento públicos por padrão. A configuração própria de um usuário na tabela tem prioridade.",
+      "rolesHint": "Quem pode criar links de compartilhamento públicos por padrão. A configuração própria de cada pessoa, em Pessoas, tem prioridade.",
       "disabled": "Os links de compartilhamento estão desativados neste servidor (SHARE_LINKS_ENABLED=false).",
       "adminAlways": "Admins sempre podem criar links de compartilhamento",
       "rolesFailed": "Não foi possível atualizar os padrões dos links.",
@@ -1673,8 +1877,7 @@
     },
     "cleanup": {
       "title": "Limpeza do banco de dados",
-      "description": "Escaneia o banco de dados em busca de livros, mapas e tokens cujos arquivos não existem mais no disco e remove seus registros. Esta ação não pode ser desfeita - reescanear a biblioteca só voltará a adicionar arquivos que estejam presentes no disco.",
-      "button": "Remover arquivos ausentes",
+      "description": "Encontra livros, mapas, tokens, áudios e modelos 3D cujos arquivos não estão mais no disco e mostra o que encontrou. Os registros só são removidos depois que você confirmar. Isso não pode ser desfeito - reescanear só volta a adicionar arquivos que estão presentes no disco.",
       "cleaning": "Limpando…",
       "nothingToRemove": "Nada a remover - o banco de dados está limpo.",
       "removed_one": "Removido {{count}} registro.",
@@ -1685,7 +1888,24 @@
       "maps_other": "{{count}} mapas",
       "tokens_one": "{{count}} token",
       "tokens_other": "{{count}} tokens",
-      "failed": "Falha na limpeza. Verifique os logs do servidor."
+      "failed": "Falha na limpeza. Verifique os logs do servidor.",
+      "find": "Encontrar arquivos ausentes…",
+      "checking": "Verificando…",
+      "allPresent": "Todos os registros ainda têm seu arquivo. Nada a remover.",
+      "unavailableTitle": "A pasta da biblioteca está ausente ou vazia",
+      "unavailableBody": "Ela pode não estar montada. Nada foi removido - verifique a pasta da biblioteca e tente novamente.",
+      "confirmTitle": "Remover os registros de arquivos ausentes?",
+      "confirmMessage": "Estes registros apontam para arquivos que não estão mais no disco. A remoção não pode ser desfeita, e as tags, favoritos e progresso de leitura deles também serão perdidos.",
+      "confirmButton_one": "Remover {{count}} registro",
+      "confirmButton_other": "Remover {{count}} registros",
+      "ofTotal": "(de {{total}})",
+      "wholeKindWarning": "Em pelo menos um tipo, todos os registros estão sem o arquivo. Se parte da biblioteca não estiver montada, cancele e verifique isso primeiro.",
+      "audio_one": "{{count}} arquivo de áudio",
+      "audio_other": "{{count}} arquivos de áudio",
+      "models_one": "{{count}} modelo 3D",
+      "models_other": "{{count}} modelos 3D",
+      "offline": "Não foi possível acessar o servidor. Verifique sua conexão e tente novamente.",
+      "failedWithReason": "Falha na limpeza - {{message}}"
     },
     "sidecars": {
       "title": "Arquivos de metadados",
@@ -3250,7 +3470,7 @@
       "dark": "Dark",
       "system": "System"
     },
-    "yourThemes": "Theme",
+    "yourThemes": "Temas instalados",
     "community": "Community",
     "browse": "Browse community themes",
     "import": "Import a theme",
@@ -3703,7 +3923,9 @@
     "confirmUninstall": "Desinstalar \"{{name}}\" deste servidor? Os personagens mantêm as referências e as mostram como não instaladas até que volte. Os conjuntos de regras que o importaram mantêm sua própria cópia.",
     "installedHelp": "Instalados para todos neste servidor. Qualquer personagem numa ficha compatível pode usar o conteúdo de um pacote na hora.",
     "emptyInstalled": "Nenhum pacote de conteúdo instalado ainda. Navegue pelos pacotes de conteúdo para adicionar um.",
-    "forSheet": "Para {{sheet}}"
+    "forSheet": "Para {{sheet}}",
+    "confirmUninstallTitle": "Desinstalar o pacote de conteúdo?",
+    "uninstallConfirm": "Desinstalar"
   },
   "rulesets": {
     "title": "Conjuntos de regras",

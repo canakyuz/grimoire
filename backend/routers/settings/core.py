@@ -28,12 +28,29 @@ from ._helpers import (
     _OIDC_BOOL_FIELDS,
     _OIDC_BUTTON_COLOR_FIELDS,
     guest_access_effective,
+    oidc_is_configured,
+    password_auth_effective,
     sanitize_login_message,
     seal_client_secret,
 )
 from ._schemas import SettingsPatch
 
 router = APIRouter()
+
+_PASSWORD_OFF_LOCKOUT = (
+    "Set up single sign-on (OIDC) before turning off password sign-in - "
+    "otherwise no one could sign in."
+)
+_OIDC_OFF_LOCKOUT = (
+    "Turn password sign-in back on before turning off single sign-on - "
+    "otherwise no one could sign in."
+)
+
+
+def _sign_in_possible(raw: dict) -> bool:
+    """Whether anyone could sign in: by password, or through a working OIDC setup."""
+    return password_auth_effective(raw) or oidc_is_configured(raw)
+
 
 # Sign-in settings - every OIDC field, password and guest sign-in, and the
 # login page's message - are set from a signed-in session only, never a key.
@@ -58,8 +75,12 @@ def update_settings(
 ):
     from ... import library_watch, scheduler  # local import avoids circular dependency
 
-    if any(getattr(data, key) is not None for key in _SIGN_IN_FIELDS):
+    touches_sign_in = any(getattr(data, key) is not None for key in _SIGN_IN_FIELDS)
+    if touches_sign_in:
         api_keys.assert_session(current_user, "Sign-in settings need a signed-in session")
+    # Only a change that takes sign-in away is refused below, never one made while
+    # it is already impossible - that would stop an admin repairing it in steps.
+    could_sign_in = touches_sign_in and _sign_in_possible(_get_raw(db))
 
     if (
         data.rescan_schedule_interval is not None
@@ -236,6 +257,16 @@ def update_settings(
             _set(db, "oidc_client_secret", "")
         else:
             _set(db, "oidc_client_secret", seal_client_secret(data.oidc_client_secret))
+
+    # Judged on the settings as this patch leaves them (the query autoflushes the
+    # writes above), so a patch that sets up OIDC and turns passwords off in one
+    # go is allowed. Nothing is committed yet, so a refusal discards it all.
+    if could_sign_in and not _sign_in_possible(_get_raw(db)):
+        db.rollback()
+        raise HTTPException(
+            400,
+            _PASSWORD_OFF_LOCKOUT if data.password_auth_enabled is False else _OIDC_OFF_LOCKOUT,
+        )
 
     db.commit()
 

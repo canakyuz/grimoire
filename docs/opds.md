@@ -18,7 +18,7 @@ environment:
 
 ## Personal feed URLs
 
-OPDS access is per-user. Each user generates their own opaque feed URL in **Settings → Account → OPDS Feed**. The URL contains a long random token - no username or password is needed by the OPDS client.
+OPDS access is per-user. Each user generates their own opaque feed URL in **Settings → Connections → OPDS Feed**. The URL contains a long random token - no username or password is needed by the OPDS client.
 
 Guest accounts are campaign-scoped and do not get an OPDS feed: OPDS reports as unavailable for them, they cannot generate a token, and the feed rejects any token belonging to a guest.
 
@@ -29,7 +29,7 @@ Guest accounts are campaign-scoped and do not get an OPDS feed: OPDS reports as 
 
 ## Feed versions
 
-Grimoire serves two versions of the feed. Both use the same token, so regenerating or disabling it affects both. Pick one with the **Feed version** dropdown in **Settings → Account → OPDS Feed** - the URL and the Copy button follow your choice.
+Grimoire serves two versions of the feed. Both use the same token, so regenerating or disabling it affects both. Pick one with the **Feed version** dropdown in **Settings → Connections → OPDS Feed** - the URL and the Copy button follow your choice.
 
 | Version | What it shows |
 |---------|---------------|

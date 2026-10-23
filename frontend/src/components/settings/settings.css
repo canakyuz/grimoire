@@ -1,0 +1,514 @@
+/* ---------------------------------------------------------------------------
+   Settings - the area rail, search, and the heading scale inside an area page.
+
+   An area page reads top-down as: area title (h1, Cinzel) › group (h2, Cinzel,
+   collapsible) › setting (h3, the body face). Section components still carry
+   inline heading sizes from before the scale existed; the h3 rule below
+   overrides them so every setting heading reads at the same level.
+   --------------------------------------------------------------------------- */
+
+.settings-page {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 48px;
+  max-width: 1160px;
+  width: 100%;
+  margin: 0 auto;
+  padding: clamp(16px, 4vw, 32px) clamp(16px, 4vw, 40px);
+  box-sizing: border-box;
+}
+
+.settings-aside {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  /* Room for focus rings on the edge links. */
+  padding: 2px;
+  margin: -2px;
+}
+
+.settings-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  color: var(--gold);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Rail ------------------------------------------------------------------- */
+
+.settings-nav-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-nav-scope ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.settings-nav-scope-label {
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0 12px 6px;
+}
+
+.settings-nav-link {
+  display: block;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 15px;
+  line-height: 1.3;
+  color: var(--text-dim);
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.settings-nav-link:hover {
+  background: var(--bg-card);
+  color: var(--text);
+}
+
+.settings-nav-link[aria-current='page'] {
+  background: var(--bg-card);
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.settings-nav-select {
+  display: none;
+}
+
+.settings-nav-select select {
+  width: 100%;
+  font-size: 16px;
+}
+
+/* Search ----------------------------------------------------------------- */
+
+.settings-search {
+  position: relative;
+}
+
+.settings-search input {
+  width: 100%;
+  padding: 8px 32px 8px 34px;
+  font-size: 15px;
+}
+
+/* The native clear control would sit on top of ours. */
+.settings-search input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.settings-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.settings-search-hint,
+.settings-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.settings-search-hint {
+  min-width: 20px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.settings-search-clear {
+  display: flex;
+  padding: 4px;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-muted);
+}
+
+.settings-search-clear:hover {
+  color: var(--text);
+}
+
+.settings-search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: max(100%, 320px);
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+  z-index: 60;
+  list-style: none;
+  padding: 6px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px var(--shadow);
+}
+
+.settings-search-option {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.settings-search-option[aria-selected='true'] {
+  background: var(--bg-card-hover);
+}
+
+.settings-search-option-title {
+  font-size: 15px;
+  color: var(--text);
+}
+
+.settings-search-option[aria-selected='true'] .settings-search-option-title {
+  color: var(--gold-bright);
+}
+
+.settings-search-option-path {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.settings-search-empty {
+  padding: 10px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+/* Area page -------------------------------------------------------------- */
+
+.settings-main {
+  min-width: 0;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-bottom: 32px;
+}
+
+.settings-header h1 {
+  font-size: 28px;
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+
+.settings-header-description {
+  max-width: 62ch;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+.settings-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* A rule between settings, skipping sections that rendered nothing (a
+   feature that is off on this server). Drawn as its own line rather than a
+   border so the section's rounded flash outline doesn't bend it. */
+.settings-stack > :not(:empty) ~ :not(:empty) {
+  position: relative;
+  padding-top: 32px;
+}
+
+.settings-stack > :not(:empty) ~ :not(:empty)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--border);
+}
+
+.settings-stack > :empty {
+  display: none;
+}
+
+/* Groups (h2) */
+
+.settings-group {
+  margin-bottom: 12px;
+  scroll-margin-top: 24px;
+}
+
+.settings-group[data-open='true'] {
+  margin-bottom: 40px;
+}
+
+.settings-group-heading {
+  font-size: 18px;
+}
+
+.settings-group-heading button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0 0 10px;
+  background: none;
+  border-bottom: 1px solid var(--border);
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--gold);
+  text-align: left;
+}
+
+.settings-group-heading button:hover {
+  color: var(--gold-bright);
+}
+
+.settings-group-summary {
+  padding-top: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.settings-group-body {
+  padding-top: 16px;
+}
+
+.settings-group-description {
+  max-width: 70ch;
+  margin-bottom: 24px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+/* Settings (h3) */
+
+.settings-section {
+  scroll-margin-top: 24px;
+  border-radius: 8px;
+}
+
+.settings-main h3 {
+  font-family: 'Alegreya Sans', sans-serif !important;
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  color: var(--text) !important;
+  line-height: 1.3;
+}
+
+/* Dialogs opened from a setting keep the app's dialog title style. */
+.settings-main [aria-modal='true'] h3 {
+  font-family: 'Cinzel', serif !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  color: var(--gold) !important;
+}
+
+.settings-section-title {
+  margin-bottom: 6px;
+}
+
+.settings-section-description {
+  max-width: 70ch;
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+/* Danger zone */
+
+.settings-danger {
+  margin-top: 16px;
+  padding: 20px 24px 24px;
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  border-radius: 10px;
+  scroll-margin-top: 24px;
+}
+
+.settings-danger-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 16px;
+  color: var(--danger);
+}
+
+/* Arriving by link: the section is outlined in gold, which then fades. */
+.settings-flash {
+  animation: settingsFlash 2.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.settings-section.settings-flash,
+.settings-group.settings-flash {
+  outline-offset: 8px;
+}
+
+@keyframes settingsFlash {
+  0%,
+  35% {
+    outline: 2px solid var(--gold);
+    background-color: color-mix(in srgb, var(--gold) 8%, transparent);
+  }
+  100% {
+    outline: 2px solid transparent;
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-flash {
+    animation: none;
+    outline: 2px solid var(--gold);
+  }
+}
+
+.settings-main :focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Overview ledger -------------------------------------------------------- */
+
+.settings-ledger {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+
+.settings-ledger-row {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px 24px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-ledger-row dt {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  color: var(--gold);
+}
+
+.settings-ledger-status {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.settings-ledger-detail {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.settings-ledger-attention {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--warning);
+}
+
+.settings-ledger-link {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* Narrow screens --------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .settings-page {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .settings-aside {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    gap: 12px;
+  }
+
+  .settings-nav-rail {
+    display: none;
+  }
+
+  .settings-nav-select {
+    display: block;
+  }
+
+  .settings-header h1 {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .settings-ledger-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .settings-ledger-row dt {
+    grid-column: 1 / -1;
+  }
+
+  .settings-danger {
+    padding: 16px;
+  }
+}
+
+/* No keyboard to press `/` on. */
+@media (hover: none) {
+  .settings-search-hint {
+    display: none;
+  }
+}

@@ -1,7 +1,7 @@
 # File management
 
 Grimoire manages library files itself: admins can upload, move, rename, and delete content
-from **Settings → Maintenance → Open file manager**, or from the **⋮** menu on any book,
+from **Settings → Library → Library tools → Open file manager**, or from the **⋮** menu on any book,
 and the metadata attached to a file follows it wherever it goes.
 
 This needs the library mounted **writable**, which is the default - it is simply the
@@ -15,8 +15,8 @@ you work if you keep the mount read-only - see
 
 ## In-app file management
 
-Admins can reorganize the library from inside Grimoire - **Settings → Maintenance
-→ Open file manager**. It is a folder tree (think Finder or Explorer, but aware
+Admins can reorganize the library from inside Grimoire - **Settings → Library
+→ Library tools → Open file manager**. It is a folder tree (think Finder or Explorer, but aware
 of Grimoire's own concepts) built for bulk reorganization:
 
 - **It opens at the library root**, showing `books`, `maps`, `tokens`, and
@@ -186,7 +186,7 @@ A rescan compares each file's modification time and size against what it recorde
 
 Libraries accumulate copies: the same book bought in a bundle and standalone, `Book.pdf` beside `Book (1).pdf`, a PDF and a CBZ of one scan. They also accumulate *deliberate* near-copies, which are not the same problem: a printer-friendly cut next to the screen edition, a form-fillable character sheet, a gridless battle map, a v1.0.0 superseded by a v1.0.1 with errata.
 
-**Finding them.** **Settings → Maintenance → Open duplicate detection** opens a full page (like the file manager - reviewing copies wants the whole width, and it keeps the delete and merge actions off the settings tab) where a scan runs on demand - never as part of a normal rescan, since hashing a large library is expensive - with live progress and a stop button.
+**Finding them.** **Settings → Library → Library tools → Open duplicate detection** opens a full page (like the file manager - reviewing copies wants the whole width, and it keeps the delete and merge actions off the settings page) where a scan runs on demand - never as part of a normal rescan, since hashing a large library is expensive - with live progress and a stop button.
 
 **Stopping one.** **Stop scan** asks the running scan to wind down; it discards what it found so far, since a partial list reads as "nothing else was found" when the scan simply stopped early. If the server was restarted or killed while a scan was running, the page could previously be left showing a scan stuck at 0% that Stop appeared to ignore and that blocked every later scan. That state now clears itself when the server starts, and pressing **Stop** on a scan that is no longer really running clears it immediately too, so a new scan can be started.
 
@@ -281,7 +281,7 @@ A rename that a scan only half saw - stopped, or cut off by a restart - is still
 
 Removal is deliberately cautious. A system is kept if it still holds any book that is present on disk, if it is the parent of a system that does, if a campaign is played in it, or if you have adapted it yourself by renaming it or giving it a description or cover. Scoped rescans (a single folder) never remove systems, since they only look at one corner of the library.
 
-**Deleting files** inside a system that is still there marks them missing on the next scan rather than forgetting them, since a share that was briefly unmounted looks the same as a deletion. **Settings → Maintenance → Database Cleanup** removes missing entries for good, and also clears any empty system an older version left behind.
+**Deleting files** inside a system that is still there marks them missing on the next scan rather than forgetting them, since a share that was briefly unmounted looks the same as a deletion. **Settings → Library → Danger zone → Database Cleanup** removes missing entries for good, and also clears any empty system an older version left behind. It first counts what it would remove and asks you to confirm, and it refuses to run while the library folder is missing or empty - most likely a share that isn't mounted, where every file would look missing. A cleanup set to run after a scheduled rescan skips itself in that case too.
 
 ## Interrupted scans
 
@@ -299,13 +299,13 @@ the library mounted read-only.
 
 While the library is [watched for changes](#watching-for-changes) (the default), files
 added, renamed, moved, or deleted with an external tool show up in Grimoire by themselves a
-few seconds later. Otherwise trigger a **Rescan** (sidebar or **Settings → Maintenance**),
-or configure one in **Settings → Maintenance → Scheduled Rescan**. Changes made in the
+few seconds later. Otherwise trigger a **Rescan** (sidebar or **Settings → Library**),
+or configure one in **Settings → Library → Scanning → Scheduled Rescan**. Changes made in the
 built-in file manager apply immediately either way.
 
 ### Watching for changes
 
-**Settings → Maintenance → Watch for Changes** rescans by itself whenever something changes
+**Settings → Library → Scanning → Watch for Changes** rescans by itself whenever something changes
 in the library folder. It waits until the folder has been quiet for a few seconds, so a
 large copy is scanned once, when it has finished. A change inside one system or folder
 rescans only that folder; a change that spans folders, or adds, renames, or removes a
@@ -379,7 +379,7 @@ books/
             └── cover.jpg
 ```
 
-After editing metadata in Calibre and triggering a rescan in Grimoire, the updated metadata appears in the library. Note: Grimoire only applies OPF metadata on a book's **first index**. To re-apply updated OPF metadata to an already-indexed book, delete the book record in Grimoire (Settings → Maintenance) and rescan.
+After editing metadata in Calibre and triggering a rescan in Grimoire, the updated metadata appears in the library. Note: Grimoire only applies OPF metadata on a book's **first index**. To re-apply updated OPF metadata to an already-indexed book, delete the book record in Grimoire (Settings → Library → Danger zone) and rescan.
 
 #### Calibre-Web (alternative)
 

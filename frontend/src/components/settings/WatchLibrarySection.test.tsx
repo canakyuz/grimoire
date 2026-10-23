@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import WatchLibrarySection from './WatchLibrarySection'
 import { settings as settingsApi, type Schema } from '../../api'
+import { SettingsDirtyContext } from './settingsDirty'
 
 vi.mock('../../api', () => ({
   settings: { get: vi.fn(), patch: vi.fn() },
@@ -146,5 +147,34 @@ describe('WatchLibrarySection', () => {
 
     expect(await screen.findByLabelText('Watch the library folder for changes')).toBeChecked()
     expect(screen.getByRole('radio', { name: 'Automatic' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('reports unsaved edits until they are saved', async () => {
+    get.mockResolvedValue(settings() as never)
+    patch.mockResolvedValue(settings({ library_watch_mode: 'poll' }) as never)
+    const set = vi.fn()
+    const dirty = () => set.mock.calls.filter(([id]) => id === 'watch').at(-1)?.[1]
+    const { unmount } = render(
+      <SettingsDirtyContext.Provider value={{ set }}>
+        <WatchLibrarySection />
+      </SettingsDirtyContext.Provider>
+    )
+
+    fireEvent.click(await screen.findByRole('radio', { name: 'Check regularly' }))
+    expect(dirty()).toBe(true)
+    // Choosing the saved value again is no edit at all.
+    fireEvent.click(screen.getByRole('radio', { name: 'Automatic' }))
+    expect(dirty()).toBe(false)
+
+    fireEvent.click(screen.getByLabelText('Watch the library folder for changes'))
+    expect(dirty()).toBe(true)
+    fireEvent.click(screen.getByLabelText('Watch the library folder for changes'))
+    fireEvent.click(screen.getByRole('radio', { name: 'Check regularly' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Saved')
+    expect(dirty()).toBe(false)
+
+    unmount()
+    expect(set).toHaveBeenLastCalledWith('watch', false)
   })
 })

@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { fireEvent } from '@testing-library/react'
 import SidecarExportSection from './SidecarExportSection'
 import { sidecars } from '../../api'
+import { SettingsDirtyContext } from './settingsDirty'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
@@ -26,6 +27,39 @@ const saveButton = () => screen.getByRole('button', { name: /sidecars\.save$/ })
 const exportButton = () => screen.getByRole('button', { name: /sidecars\.export$/ })
 
 describe('SidecarExportSection', () => {
+  it('reports unsaved edits until they are saved, and announces the save', async () => {
+    sidecars.save.mockImplementation((body) => Promise.resolve(body))
+    const set = vi.fn()
+    const dirty = () => set.mock.calls.filter(([id]) => id === 'sidecars').at(-1)?.[1]
+    const { unmount } = render(
+      <SettingsDirtyContext.Provider value={{ set }}>
+        <SidecarExportSection />
+      </SettingsDirtyContext.Provider>
+    )
+    await waitFor(() => expect(formatBox('opf')).toBeInTheDocument())
+    expect(dirty()).toBe(false)
+
+    fireEvent.click(formatBox('opf'))
+    expect(dirty()).toBe(true)
+    fireEvent.click(formatBox('opf'))
+    expect(dirty()).toBe(false)
+    fireEvent.click(box('sidecar-covers'))
+    expect(dirty()).toBe(true)
+    fireEvent.click(box('sidecar-covers'))
+    fireEvent.click(box('sidecar-overwrite'))
+    expect(dirty()).toBe(true)
+    fireEvent.click(formatBox('nfo'))
+
+    fireEvent.click(saveButton())
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('maintenance.sidecars.saved')
+    )
+    expect(dirty()).toBe(false)
+
+    unmount()
+    expect(set).toHaveBeenLastCalledWith('sidecars', false)
+  })
+
   it('loads the current settings on mount', async () => {
     sidecars.get.mockResolvedValue({
       formats: ['opf', 'json'],

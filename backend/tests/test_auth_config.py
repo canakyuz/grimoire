@@ -2,6 +2,7 @@
 custom-login-message HTML sanitizer."""
 
 from backend.routers.settings._helpers import sanitize_login_message
+from backend.tests.conftest import OIDC_CLEARED, OIDC_CONFIGURED
 
 
 # ---------------------------------------------------------------------------
@@ -61,13 +62,14 @@ class TestAuthConfig:
 
 class TestPasswordAuthDisabled:
     def test_login_blocked_when_disabled(self, client, admin_headers):
-        # Disable password auth
+        # Password sign-in can only go off once OIDC is set up, so it is set up
+        # and passwords turned off in the same patch.
         resp = client.patch(
             "/api/settings",
-            json={"password_auth_enabled": False},
+            json={**OIDC_CONFIGURED, "password_auth_enabled": False},
             headers=admin_headers,
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 200, resp.text
         try:
             resp = client.post(
                 "/api/auth/login",
@@ -76,12 +78,14 @@ class TestPasswordAuthDisabled:
             assert resp.status_code == 403
             assert "disabled" in resp.json()["detail"].lower()
         finally:
-            # Re-enable so other tests still work
+            # Re-enable so other tests still work - passwords back on first, or
+            # clearing OIDC would be refused as a lock-out.
             client.patch(
                 "/api/settings",
                 json={"password_auth_enabled": True},
                 headers=admin_headers,
             )
+            client.patch("/api/settings", json=OIDC_CLEARED, headers=admin_headers)
 
 
 # ---------------------------------------------------------------------------

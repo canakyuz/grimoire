@@ -1,22 +1,22 @@
 """Maintenance endpoint handlers — admin-only housekeeping."""
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, require_admin
 from ...config import get_db, logger
 from ...metadata import export as sidecar_export
 from ...metadata import settings as sidecar_settings
-from ._helpers import _do_cleanup
+from . import _helpers
 from ._schemas import SidecarSettings
 
+LIBRARY_UNAVAILABLE_DETAIL = (
+    "The library folder is missing or empty - it may not be mounted. Nothing was removed."
+)
 
-def cleanup_missing(
-    _: CurrentUser = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
+
+def _refuse_during_scan() -> None:
     from ..library import _helpers as _lib
 
-    logger.debug("Cleanup: manual trigger received")
     if _lib.scan_in_progress():
         logger.debug("Cleanup: blocked - library scan is currently running")
         raise HTTPException(
@@ -24,14 +24,45 @@ def cleanup_missing(
             detail="A library scan is already running; retry after it completes.",
         )
 
+
+def cleanup_missing(
+    force: bool = Query(
+        False,
+        description=(
+            "Run even though the library folder looks unmounted (missing or empty "
+            "while the database still holds items)."
+        ),
+    ),
+    _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    logger.debug("Cleanup: manual trigger received")
+    _refuse_during_scan()
+
+    if _helpers.library_root_unavailable(db):
+        if not force:
+            logger.warning("Cleanup: refused - the library folder is missing or empty")
+            raise HTTPException(status_code=409, detail=LIBRARY_UNAVAILABLE_DETAIL)
+        logger.warning("Cleanup: the library folder is missing or empty - forced anyway")
+
     logger.debug("Cleanup: no scan running, proceeding")
     try:
-        removed = _do_cleanup(db)
+        removed = _helpers._do_cleanup(db)
         logger.info(f"Cleanup complete: {removed}")
         return {"removed": removed}
     except Exception:
         db.rollback()
         raise
+
+
+def cleanup_missing_preview(
+    _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Dry run of the cleanup: what is missing, out of how much, and whether the
+    library folder itself looks unmounted. Deletes nothing."""
+    _refuse_during_scan()
+    return _helpers.preview_cleanup(db)
 
 
 def get_sidecar_settings(

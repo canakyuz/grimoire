@@ -460,3 +460,33 @@ def make_campaign(owner_id: str, **kwargs) -> Campaign:
     db.refresh(c)
     db.close()
     return c
+
+
+@pytest.fixture
+def library_mounted(monkeypatch):
+    """Treat the library folder as mounted for cleanup's unmounted-share guard.
+
+    The test library folder is usually empty while the shared database holds
+    rows left by other tests - exactly what an unmounted share looks like - so
+    tests about what cleanup removes opt out of the guard with this fixture.
+    """
+    from backend.routers.maintenance import _helpers
+
+    monkeypatch.setattr(_helpers, "library_root_unavailable", lambda db: False)
+
+
+# A settings patch that makes OIDC count as configured (enabled, with an issuer,
+# client id and secret), and one that undoes it. Password sign-in can only be
+# turned off while OIDC is configured.
+OIDC_CONFIGURED = {
+    "oidc_enabled": True,
+    "oidc_issuer_url": "https://idp.example.com/realm",
+    "oidc_client_id": "grimoire",
+    "oidc_client_secret": "secret",
+}
+OIDC_CLEARED = {
+    "oidc_enabled": False,
+    "oidc_issuer_url": "",
+    "oidc_client_id": "",
+    "oidc_client_secret": "__CLEAR__",
+}

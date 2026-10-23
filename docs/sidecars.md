@@ -85,7 +85,7 @@ identifying who wrote them, so Grimoire cannot tell yours from its own.
 ## In the file manager
 
 Sidecars are metadata *about* your content, not content, so Grimoire's file
-manager (**Settings → Maintenance → File Manager**) hides them. A book that
+manager (**Settings → Library → Library tools → File manager**) hides them. A book that
 exports in four formats plus a cover would otherwise turn one row into six, none
 of which you can usefully act on.
 
@@ -214,7 +214,7 @@ scanner does not read them back, so they cannot drift regardless of mode.
 
 ## Settings
 
-In the app, go to **Settings → Maintenance → Metadata Sidecars**: tick the
+In the app, go to **Settings → Metadata → Sidecar files**: tick the
 formats you want, save, then use **Export Metadata To Library** for the one-shot
 backfill. The export button stays disabled until at least one format has been
 saved, since the backfill writes what the server has stored rather than what is

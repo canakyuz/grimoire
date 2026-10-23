@@ -138,6 +138,16 @@ export const sidecars = {
   export: () => client.post('/maintenance/sidecars/export'),
 }
 
+// Database cleanup: remove rows whose file is gone from the library. Admin-only.
+// The preview is a dry run - per-collection missing and total counts, plus
+// `library_unavailable` when the library folder looks unmounted. A cleanup is
+// refused (409) in that state unless `force` is set.
+export const maintenance = {
+  cleanupPreview: () => client.get('/maintenance/cleanup-missing/preview'),
+  cleanupMissing: (force = false) =>
+    client.post('/maintenance/cleanup-missing', { query: { force } }),
+}
+
 export const addons = {
   verifyIndex: (url?: string | null) =>
     client.get('/addons/verify-index', { query: { url: url || '' } }),

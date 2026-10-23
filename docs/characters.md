@@ -429,7 +429,7 @@ Packs are server-wide, so installing one needs an admin. The usual way is
 what the community catalogue offers. An installed pack there can be
 **reinstalled**, **updated** when the catalogue has a newer version, or
 **uninstalled**. Uninstalling also sits beside each pack under **Settings →
-Add-ons → Character content packs**.
+Add-ons → Content packs**.
 
 A pack can also be installed by hand: put its directory in `character-content/`
 inside your data directory, then **Reload from disk** on that settings page.

@@ -27,7 +27,7 @@ Grimoire uses Grimoire Codex DB in three ways:
    **Account → API tokens**. It starts with `cdx_` and is shown only once.
 2. Set it as `GRIMOIRE_CODEX_DB_API_TOKEN` in Grimoire's environment (for example in
    `docker-compose.yml`) and restart Grimoire.
-3. **Settings → Add-ons → Grimoire Codex DB** now appears. Use **Test connection** to
+3. **Settings → Metadata → Grimoire Codex DB** now appears. Use **Test connection** to
    check that the token works.
 4. **Recommended:** turn on **Send file hashes when looking up books** there (or set
    `GRIMOIRE_CODEX_DB_SEND_HASHES=true`). It is off by default; see
@@ -65,7 +65,7 @@ such as showing explicit records, apply to lookups.
 
 ## Settings
 
-**Settings → Add-ons → Grimoire Codex DB** (admins only, shown once `GRIMOIRE_CODEX_DB_API_TOKEN`
+**Settings → Metadata → Grimoire Codex DB** (admins only, shown once `GRIMOIRE_CODEX_DB_API_TOKEN`
 is set):
 
 | Setting | Default | What it does |

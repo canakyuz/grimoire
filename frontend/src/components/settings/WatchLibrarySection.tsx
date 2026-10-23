@@ -3,11 +3,17 @@ import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuEye, LuLock } from 'react-icons/lu'
 import { settings as settingsApi, type Schema } from '../../api'
 import Spinner from '../Spinner'
+import { useUnsavedChanges } from './settingsDirty'
 
 type Settings = Schema<'SettingsResponse'>
 type Mode = 'auto' | 'events' | 'poll'
 
 const MODES: Mode[] = ['auto', 'events', 'poll']
+
+const savedMode = (data: Settings): Mode => {
+  const mode = data.library_watch_mode as Mode
+  return MODES.includes(mode) ? mode : 'auto'
+}
 
 const STATE_COLORS: Record<string, string> = {
   watching: 'var(--green)',
@@ -35,9 +41,15 @@ export default function WatchLibrarySection() {
   const apply = (next: Settings) => {
     setData(next)
     setEnabled(next.library_watch_enabled ?? true)
-    const nextMode = next.library_watch_mode as Mode
-    setMode(MODES.includes(nextMode) ? nextMode : 'auto')
+    setMode(savedMode(next))
   }
+
+  // Edits not yet saved. A setting pinned by the environment can't differ.
+  const dirty =
+    !!data &&
+    ((!data.library_watch_env_locked && enabled !== (data.library_watch_enabled ?? true)) ||
+      (!data.library_watch_mode_env_locked && mode !== savedMode(data)))
+  useUnsavedChanges('watch', dirty)
 
   useEffect(() => {
     settingsApi.get().then(apply)
@@ -87,9 +99,7 @@ export default function WatchLibrarySection() {
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>
-        {t('maintenance.watch.title')}
-      </h3>
+      <h3 style={{ marginBottom: 6 }}>{t('maintenance.watch.title')}</h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
         {t('maintenance.watch.description')}
       </p>
@@ -216,19 +226,22 @@ export default function WatchLibrarySection() {
                 {saving && <Spinner size={13} />}
                 {saving ? t('maintenance.watch.saving') : t('maintenance.watch.save')}
               </button>
-              {saved && (
-                <span
-                  style={{
-                    fontSize: 13,
-                    color: 'var(--green)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 5,
-                  }}
-                >
-                  <LuCircleCheck size={14} /> {t('maintenance.watch.saved')}
-                </span>
-              )}
+              <span
+                role="status"
+                style={{
+                  fontSize: 13,
+                  color: 'var(--green)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                }}
+              >
+                {saved && (
+                  <>
+                    <LuCircleCheck size={14} aria-hidden="true" /> {t('maintenance.watch.saved')}
+                  </>
+                )}
+              </span>
             </div>
           )}
         </div>

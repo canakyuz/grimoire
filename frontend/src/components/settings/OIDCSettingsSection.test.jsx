@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import OIDCSettingsSection from './OIDCSettingsSection'
 import api, { settings as settingsApi } from '../../api'
+import { SettingsDirtyContext } from './settingsDirty'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
@@ -12,8 +13,9 @@ vi.mock('../../api', () => ({
   settings: { get: vi.fn(), patch: vi.fn() },
 }))
 
+// Enabled by default: most of the form only shows once OIDC is turned on.
 const baseSettings = (over = {}) => ({
-  oidc_enabled: false,
+  oidc_enabled: true,
   oidc_issuer_url: '',
   oidc_token_issuer: '',
   oidc_authorization_endpoint: '',
@@ -149,12 +151,111 @@ describe('OIDCSettingsSection', () => {
   })
 
   it('toggles a boolean field and persists it', async () => {
-    settingsApi.get.mockResolvedValue(baseSettings())
+    settingsApi.get.mockResolvedValue(baseSettings({ oidc_enabled: false }))
     settingsApi.patch.mockResolvedValue(baseSettings({ oidc_enabled: true }))
     render(<OIDCSettingsSection />)
     await screen.findByText('authSettings.oidc.title')
     await userEvent.click(screen.getAllByRole('checkbox')[0])
     await waitFor(() => expect(settingsApi.patch).toHaveBeenCalledWith({ oidc_enabled: true }))
+  })
+
+  it('shows only the toggle and the redirect URI while OIDC is off', async () => {
+    settingsApi.get.mockResolvedValue(baseSettings({ oidc_enabled: false }))
+    settingsApi.patch.mockResolvedValue(baseSettings({ oidc_enabled: true }))
+    render(<OIDCSettingsSection />)
+    await screen.findByText('authSettings.oidc.title')
+    expect(screen.getByText('authSettings.oidc.description')).toBeInTheDocument()
+    expect(
+      screen.getByText('https://grimoire.example.com/api/auth/openid/callback')
+    ).toBeInTheDocument()
+    expect(screen.getAllByRole('checkbox')).toHaveLength(1)
+    expect(screen.queryByLabelText('authSettings.oidc.issuerUrl')).toBeNull()
+    expect(screen.queryByLabelText('authSettings.oidc.clientId')).toBeNull()
+    expect(screen.queryByRole('heading', { level: 4 })).toBeNull()
+
+    // Turning it on reveals the rest straight away, grouped under sub-headings.
+    await userEvent.click(screen.getByLabelText('authSettings.oidc.enable'))
+    expect(await screen.findByLabelText('authSettings.oidc.issuerUrl')).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 4 }).map((h) => h.textContent)).toEqual([
+      'authSettings.oidc.groups.provider',
+      'authSettings.oidc.groups.client',
+      'authSettings.oidc.groups.loginButton',
+      'authSettings.oidc.groups.roles',
+      'authSettings.oidc.groups.behaviour',
+    ])
+  })
+
+  it('warns when OIDC is on but not configured enough to sign anyone in', async () => {
+    settingsApi.get.mockResolvedValue(baseSettings({ oidc_configured: false }))
+    render(<OIDCSettingsSection />)
+    expect(await screen.findByText('authSettings.oidc.notConfigured')).toBeInTheDocument()
+  })
+
+  it('does not warn when configured, or when the server does not say', async () => {
+    settingsApi.get.mockResolvedValue(baseSettings({ oidc_configured: true }))
+    const { unmount } = render(<OIDCSettingsSection />)
+    await screen.findByLabelText('authSettings.oidc.clientId')
+    expect(screen.queryByText('authSettings.oidc.notConfigured')).toBeNull()
+    unmount()
+
+    settingsApi.get.mockResolvedValue(baseSettings())
+    render(<OIDCSettingsSection />)
+    await screen.findByLabelText('authSettings.oidc.clientId')
+    expect(screen.queryByText('authSettings.oidc.notConfigured')).toBeNull()
+  })
+
+  it('does not warn about configuration while OIDC is off', async () => {
+    settingsApi.get.mockResolvedValue(baseSettings({ oidc_enabled: false, oidc_configured: false }))
+    render(<OIDCSettingsSection />)
+    await screen.findByText('authSettings.oidc.title')
+    expect(screen.queryByText('authSettings.oidc.notConfigured')).toBeNull()
+  })
+
+  it('announces a saved field and the copied redirect URI', async () => {
+    settingsApi.get.mockResolvedValue(baseSettings())
+    settingsApi.patch.mockResolvedValue(baseSettings({ oidc_client_id: 'app' }))
+    render(<OIDCSettingsSection />)
+    const input = await screen.findByLabelText('authSettings.oidc.clientId')
+    await userEvent.type(input, 'app')
+    await userEvent.tab()
+    await waitFor(() =>
+      expect(screen.getAllByRole('status').some((s) => s.textContent === 'common.saved')).toBe(true)
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'authSettings.oidc.copy' }))
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole('status').some((s) => s.textContent === 'authSettings.oidc.copied')
+      ).toBe(true)
+    )
+  })
+
+  it('reports typed-but-unsaved fields and an unsaved secret', async () => {
+    settingsApi.get.mockResolvedValue(baseSettings())
+    settingsApi.patch.mockResolvedValue(baseSettings({ oidc_client_id: 'app' }))
+    const set = vi.fn()
+    const dirty = () => set.mock.calls.filter(([id]) => id === 'oidc').at(-1)?.[1]
+    const { unmount } = render(
+      <SettingsDirtyContext.Provider value={{ set }}>
+        <OIDCSettingsSection />
+      </SettingsDirtyContext.Provider>
+    )
+    const input = await screen.findByLabelText('authSettings.oidc.clientId')
+    expect(dirty()).toBe(false)
+    await userEvent.type(input, 'app')
+    expect(dirty()).toBe(true)
+    await userEvent.tab()
+    await waitFor(() => expect(dirty()).toBe(false))
+
+    await userEvent.type(screen.getByLabelText('authSettings.oidc.clientSecret'), 's3cret')
+    expect(dirty()).toBe(true)
+    await userEvent.clear(screen.getByLabelText('authSettings.oidc.clientSecret'))
+    expect(dirty()).toBe(false)
+
+    // Leaving with an edit pending clears what this section reported.
+    await userEvent.type(screen.getByLabelText('authSettings.oidc.jwksUri'), 'x')
+    expect(dirty()).toBe(true)
+    unmount()
+    expect(dirty()).toBe(false)
   })
 
   it('persists a select change', async () => {

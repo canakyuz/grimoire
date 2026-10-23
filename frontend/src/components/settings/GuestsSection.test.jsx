@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import GuestsSection from './GuestsSection'
+import { AnchorTargetContext } from './settingsTarget'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
@@ -49,6 +50,7 @@ const status = (passwordMin) => ({
 
 beforeEach(() => {
   vi.resetAllMocks()
+  localStorage.clear()
   clearPasswordRulesCache()
   api.get.mockResolvedValue(guests)
   auth.status.mockResolvedValue(status(12))
@@ -61,6 +63,68 @@ const expand = async () => {
 }
 
 describe('GuestsSection', () => {
+  it('is a heading with a disclosure button that says whether it is open', async () => {
+    render(<GuestsSection passwordAuthEnabled onConverted={vi.fn()} />)
+    const heading = screen.getByRole('heading', { level: 3 })
+    const toggle = screen.getByRole('button', { name: /guests/i })
+    expect(heading).toContainElement(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(toggle).not.toHaveAttribute('aria-controls')
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const body = document.getElementById(toggle.getAttribute('aria-controls'))
+    expect(body).not.toBeNull()
+    await screen.findByText('Ivy')
+    // The count joins the heading once the list has loaded.
+    expect(toggle).toHaveTextContent('(1)')
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Ivy')).toBeNull()
+  })
+
+  it('remembers being opened for the next visit', async () => {
+    const { unmount } = render(<GuestsSection passwordAuthEnabled onConverted={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /guests/i }))
+    expect(localStorage.getItem('grimoire:settings:people:guests')).toBe('1')
+    await screen.findByText('Ivy')
+    unmount()
+
+    render(<GuestsSection passwordAuthEnabled onConverted={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /guests/i })).toHaveAttribute('aria-expanded', 'true')
+    // Opening from the remembered state still loads the list.
+    expect(await screen.findByText('Ivy')).toBeInTheDocument()
+  })
+
+  it('still opens when the browser blocks storage', async () => {
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    render(<GuestsSection passwordAuthEnabled onConverted={vi.fn()} />)
+    const toggle = screen.getByRole('button', { name: /guests/i })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(await screen.findByText('Ivy')).toBeInTheDocument()
+    get.mockRestore()
+    set.mockRestore()
+  })
+
+  it('opens and loads when a #guests link points at it', async () => {
+    render(
+      <AnchorTargetContext.Provider value>
+        <GuestsSection passwordAuthEnabled onConverted={vi.fn()} />
+      </AnchorTargetContext.Provider>
+    )
+    expect(await screen.findByText('Ivy')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /guests/i })).toHaveAttribute('aria-expanded', 'true')
+    // Arriving by link doesn't change what is remembered.
+    expect(localStorage.getItem('grimoire:settings:people:guests')).toBeNull()
+  })
+
   it('lazy-loads guests only when expanded', async () => {
     render(<GuestsSection passwordAuthEnabled onConverted={vi.fn()} />)
     expect(api.get).not.toHaveBeenCalled()

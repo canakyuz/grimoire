@@ -249,7 +249,7 @@ initial admin. All three are public routes - see
 
 Implemented in [`routers/oidc/`](../backend/routers/oidc/) against any standards-compliant
 IdP (Keycloak, Authentik, Authelia, Auth0, Okta, …). The IdP is configured at runtime via
-**Settings → Authentication**; each field can be pinned/locked by an environment variable
+**Settings → Sign-in**; each field can be pinned/locked by an environment variable
 (`OIDC_*`, see the `OIDC_ENV` map in [`config.py`](../backend/config.py)).
 
 ```mermaid

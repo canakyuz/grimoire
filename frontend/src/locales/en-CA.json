@@ -98,7 +98,9 @@
     "versions": "Versions",
     "clearSearch": "Clear search",
     "removeLink": "Remove link",
-    "newBadge": "New"
+    "newBadge": "New",
+    "dismissError": "Dismiss error",
+    "confirm": "Confirm"
   },
   "login": {
     "username": "Username",
@@ -465,7 +467,7 @@
     "archiveFolder": "{{folder}} (tagged “{{tag}}”)"
   },
   "files": {
-    "title": "Library file manager",
+    "title": "File manager",
     "sectionDescription": "Move, rename, and organise the files in your library without leaving Grimoire. Moves keep each item's tags, favorites, reading progress, and campaign links intact.",
     "open": "Open file manager",
     "description": "Move, rename, and organise your library. Expand folders in place and drag items onto any folder to move them - tags, favorites, progress, and campaign links all follow the file. Changes apply to disk immediately.",
@@ -713,8 +715,8 @@
       "createLink": "Create share link",
       "linkHint": "OTFBM fetches the background from this link every time it draws the map, so your Grimoire server must be reachable from the internet.",
       "linkLabel": "OTFBM background ({{cell}} px)",
-      "linkUntil": "Uses your share link, which expires {{when}}. Manage it under Settings → Account → Sharing.",
-      "linkForever": "Uses your share link, which never expires. Manage it under Settings → Account → Sharing.",
+      "linkUntil": "Uses your share link, which expires {{when}}. Manage it under Settings → Connections.",
+      "linkForever": "Uses your share link, which never expires. Manage it under Settings → Connections.",
       "selfHost": "Or host it yourself:"
     },
     "vtt": {
@@ -1025,20 +1027,209 @@
   },
   "settings": {
     "title": "Settings",
-    "tabs": {
-      "account": "Account",
-      "users": "Users",
-      "authentication": "Authentication",
-      "application": "Application",
-      "maintenance": "Maintenance",
-      "logs": "Logs",
-      "metadata": "Metadata",
-      "addons": "Add-ons"
-    },
     "quickActions": {
       "label": "Quick actions",
       "rescan": "Rescan",
       "fileManager": "File manager"
+    },
+    "nav": {
+      "label": "Settings areas"
+    },
+    "scopes": {
+      "you": "You",
+      "server": "Server"
+    },
+    "areas": {
+      "account": {
+        "title": "Account",
+        "description": "Your name and email, your password and signed-in devices, and deleting your account."
+      },
+      "preferences": {
+        "title": "Preferences",
+        "description": "Language, theme, and how books and the library open for you."
+      },
+      "connections": {
+        "title": "Connections",
+        "description": "Reading apps, API keys and share links - the ways into your library from outside Grimoire."
+      },
+      "overview": {
+        "title": "Overview",
+        "description": "How the server stands at a glance. Each line links to the settings behind it."
+      },
+      "people": {
+        "title": "People",
+        "description": "Accounts on this server, their roles and permissions, and the guests GMs have invited."
+      },
+      "access": {
+        "title": "Access & sharing",
+        "description": "What people may reach across the whole server: share links by role, restricted categories, campaign uploads and API keys."
+      },
+      "sign-in": {
+        "title": "Sign-in",
+        "description": "How people sign in: passwords, single sign-on, guest codes, and the message on the login page."
+      },
+      "library": {
+        "title": "Library",
+        "description": "Scanning the library folder, how files and folders are read, and the tools for tidying them."
+      },
+      "catalogue": {
+        "title": "Metadata",
+        "description": "Where book and system details come from - Grimoire Codex DB and the lists the editors offer - and the sidecar files written next to your books."
+      },
+      "addons": {
+        "title": "Add-ons",
+        "description": "Community add-ons - metadata scrapers, character importers, themes - and the content packs installed from them."
+      },
+      "sidebar": {
+        "title": "Sidebar",
+        "description": "Which sections and stats the sidebar shows to everyone."
+      },
+      "backups": {
+        "title": "Backups",
+        "description": "Back up the database and Grimoire's own files by hand or on a schedule, and download or remove old backups."
+      },
+      "logs": {
+        "title": "Logs",
+        "description": "What the server has been doing, live, filtered by level, user or text."
+      }
+    },
+    "groups": {
+      "profile": "Profile",
+      "security": "Password & sessions",
+      "securityDesc": "Change your password and see which devices are signed in.",
+      "look": "Language & theme",
+      "reading": "Reading & browsing",
+      "readingDesc": "How books open, how the library lists things, and what content you see.",
+      "scanning": "Scanning",
+      "filesAndFolders": "Files & folders",
+      "filesAndFoldersDesc": "How Grimoire reads categories, titles and versions from the way your library is laid out.",
+      "tools": "Library tools",
+      "sidecars": "Sidecar files"
+    },
+    "entries": {
+      "theme": "Theme",
+      "themeDesc": "Light or dark, and which theme - including community themes.",
+      "apiKeysDesc": "Let scripts and apps use Grimoire as you, without your password.",
+      "users": "Users",
+      "usersDesc": "Add accounts, change roles and permissions, and set passwords.",
+      "guestsDesc": "Code-only accounts GMs invited to their campaigns. Convert, merge or remove them.",
+      "shareLinkRoles": "Share links by role",
+      "fileManager": "File manager",
+      "fileManagerDesc": "Move, rename and reorganise the files in your library.",
+      "contentPacksDesc": "Character content installed from add-ons - classes, spells, items. Remove a pack to uninstall it."
+    },
+    "dangerZone": "Danger zone",
+    "search": {
+      "label": "Search settings",
+      "placeholder": "Find a setting",
+      "clear": "Clear search",
+      "noResults": "Nothing matches “{{query}}”.",
+      "resultCount_one": "{{count}} setting found",
+      "resultCount_other": "{{count}} settings found"
+    },
+    "unsaved": {
+      "title": "Leave without saving?",
+      "message": "This page has changes you haven't saved. Leaving now discards them.",
+      "leave": "Discard changes"
+    },
+    "overview": {
+      "open": "Open",
+      "unavailable": "Couldn't load this.",
+      "library": {
+        "watching": "Watching for changes",
+        "notWatching": "Not watching for changes",
+        "schedule": "Scheduled rescan: {{interval}}, at {{time}}",
+        "noSchedule": "No scheduled rescan",
+        "watchUnavailable": "Watching isn't working - open Library to see why"
+      },
+      "backups": {
+        "last": "Last backup {{when}}",
+        "none": "No backups yet",
+        "kept_one": "{{count}} backup kept",
+        "kept_other": "{{count}} backups kept",
+        "scheduled": "Automatic: {{interval}}",
+        "manual": "Manual only"
+      },
+      "signIn": {
+        "both": "Password and single sign-on",
+        "ssoOnly": "Single sign-on only",
+        "passwordOnly": "Password only",
+        "guestsOn": "Guest codes allowed",
+        "guestsOff": "Guest codes off",
+        "ssoIncomplete": "Single sign-on is on but isn't fully set up"
+      },
+      "people": {
+        "users_one": "{{count}} user",
+        "users_other": "{{count}} users",
+        "guests_one": "{{count}} guest",
+        "guests_other": "{{count}} guests"
+      },
+      "addons": {
+        "installed_one": "{{count}} add-on installed",
+        "installed_other": "{{count}} add-ons installed",
+        "updates_one": "{{count}} update available",
+        "updates_other": "{{count}} updates available"
+      },
+      "codex": {
+        "connected": "Connected"
+      }
+    },
+    "keywords": {
+      "account": "profile, user, me",
+      "display-name": "name, nickname, username",
+      "email": "mail, address",
+      "change-password": "password, reset",
+      "sessions": "devices, log out, sign out, logged in",
+      "delete-account": "remove, close account",
+      "language": "locale, translation, english, german, french, spanish",
+      "theme": "dark mode, light mode, colours, colors, appearance, skin",
+      "reader": "viewer, pdf, scroll, page",
+      "library-browsing": "sort, grid, list, default view",
+      "content-preferences": "explicit, nsfw, adult, mature",
+      "opds": "e-reader, kavita, panels, chunky, feed, ebook",
+      "api-keys": "token, integration, homepage, script",
+      "share-links": "public link, share",
+      "users": "accounts, roles, permissions, admin, gm, player, add user",
+      "guests": "invite codes, merge",
+      "share-link-roles": "permissions, sharing",
+      "category-access": "restrict, explicit, permissions, hide category",
+      "campaign-uploads": "upload limits, quota, file size",
+      "all-api-keys": "tokens, revoke",
+      "password-sign-in": "login, local accounts",
+      "oidc": "sso, single sign-on, openid, keycloak, authentik, authelia, google, login button",
+      "guest-access": "invite codes, guests",
+      "login-message": "login page, banner, notice, terms",
+      "rescan": "scan, index, refresh",
+      "watch": "automatic, file watcher, inotify, nfs, smb",
+      "scheduled-rescan": "schedule, nightly",
+      "folder-category": "category, core, supplements, folders",
+      "folder-naming": "filename, title, pattern",
+      "variant-rules": "gridless, printer friendly, versions",
+      "file-manager": "move, rename, organise, organize",
+      "duplicates": "copies, dedupe, merge",
+      "cleanup": "missing files, remove, prune, database",
+      "genres": "tags, lookup",
+      "system-families": "lookup",
+      "parent-systems": "lookup, edition",
+      "licenses": "ogl, creative commons, orc, lookup",
+      "dice-materials": "dice, lookup",
+      "sidecars": "opf, nfo, json, yaml, export, metadata files",
+      "codex": "metadata source",
+      "community-addons": "scrapers, importers, plugins, extensions, sources, themes",
+      "content-packs": "classes, spells, characters",
+      "sidebar-visibility": "hide, menu, navigation",
+      "sidebar-stats": "stats, counts, footer",
+      "backup-list": "backup, restore, download, zip",
+      "backup-schedule": "automatic backup, retention, storage",
+      "logs": "debug, errors",
+      "overview": "status, dashboard"
+    },
+    "save": {
+      "failed": "Not saved - {{message}}",
+      "offline": "Not saved - the server couldn't be reached. Check your connection and try again.",
+      "loadFailed": "Couldn't load these settings - {{message}}",
+      "loadOffline": "Couldn't load these settings - the server couldn't be reached. Check your connection and try again.",
+      "retry": "Try again"
     }
   },
   "authSettings": {
@@ -1052,7 +1243,12 @@
       "title": "Password Authentication",
       "description": "Allow users to sign in with a username and password. Disabling this will prevent all password logins.",
       "enable": "Enable password authentication",
-      "envLocked": "Locked by the ALLOW_PASSWORD_AUTHENTICATION environment variable (current value: {{value}})."
+      "envLocked": "Locked by the ALLOW_PASSWORD_AUTHENTICATION environment variable (current value: {{value}}).",
+      "confirmOffTitle": "Turn off password sign-in?",
+      "confirmOffMessage": "Everyone, admins included, will have to sign in with single sign-on. If single sign-on stops working, set the ALLOW_PASSWORD_AUTHENTICATION environment variable to true and restart Grimoire to turn password sign-in back on.",
+      "confirmOff": "Turn off password sign-in",
+      "needsOidc": "Password sign-in can't be turned off until single sign-on is set up - otherwise nobody could sign in.",
+      "setUpOidc": "Set up single sign-on first"
     },
     "oidc": {
       "title": "OpenID Connect Authentication",
@@ -1089,7 +1285,6 @@
       "signingAlgUnsupportedHint": "This algorithm can't verify your provider's sign-ins, so single sign-on fails until you choose one of the algorithms listed - usually RS256.",
       "buttonText": "Button Text",
       "buttonTextHint": "What the SSO button on the login screen will say.",
-      "buttonAppearance": "Button Appearance",
       "buttonAppearanceHint": "Make the button match your provider's official sign-in button: upload its logo and copy the colours from its branding guidelines. Leave a field empty to keep the theme's look.",
       "buttonPreview": "Button preview",
       "buttonBgColor": "Background Colour",
@@ -1124,7 +1319,16 @@
       "autoLaunchHint": "Redirect to the IdP automatically when visiting the login page. Add ?autoLaunch=0 to bypass.",
       "autoRegister": "Auto-register",
       "autoRegisterHint": "Automatically create new local accounts on first OIDC login. Without this, users must already exist locally.",
-      "saveFailed": "Could not save."
+      "saveFailed": "Could not save.",
+      "copied": "Copied",
+      "notConfigured": "Sign-in with single sign-on won't work until the issuer URL, client ID and client secret are set.",
+      "groups": {
+        "provider": "Provider",
+        "client": "Client",
+        "loginButton": "Login button",
+        "roles": "Roles & permissions",
+        "behaviour": "Behaviour"
+      }
     },
     "guestAccess": {
       "title": "Guest Access",
@@ -1556,7 +1760,7 @@
       "listLabel": "Share links",
       "none": "No share links.",
       "rolesTitle": "Share links",
-      "rolesHint": "Who can create public share links by default. A user's own setting in the table overrides this.",
+      "rolesHint": "Who can create public share links by default. A person's own setting, under People, overrides this.",
       "disabled": "Share links are turned off on this server (SHARE_LINKS_ENABLED=false).",
       "adminAlways": "Admins can always create share links",
       "rolesFailed": "Couldn't update the share link defaults.",
@@ -1673,8 +1877,7 @@
     },
     "cleanup": {
       "title": "Database Cleanup",
-      "description": "Scans the database for books, maps, and tokens whose files no longer exist on disk and removes their records. This cannot be undone - re-scanning the library will only re-add files that are present on disk.",
-      "button": "Remove Missing Files",
+      "description": "Finds books, maps, tokens, audio and 3D models whose files are no longer on disk, and shows you what it found. Their records are removed only once you confirm. This can't be undone - rescanning only re-adds files that are present on disk.",
       "cleaning": "Cleaning…",
       "nothingToRemove": "Nothing to remove - database is clean.",
       "removed_one": "Removed {{count}} record.",
@@ -1685,7 +1888,24 @@
       "maps_other": "{{count}} maps",
       "tokens_one": "{{count}} token",
       "tokens_other": "{{count}} tokens",
-      "failed": "Cleanup failed. Check server logs."
+      "failed": "Cleanup failed. Check server logs.",
+      "find": "Find missing files…",
+      "checking": "Checking…",
+      "allPresent": "Every record still has its file. Nothing to remove.",
+      "unavailableTitle": "The library folder is missing or empty",
+      "unavailableBody": "It may not be mounted. Nothing was removed - check the library folder, then try again.",
+      "confirmTitle": "Remove records for missing files?",
+      "confirmMessage": "These records point to files that are no longer on disk. Removing them can't be undone, and the tags, favourites and reading progress on them go too.",
+      "confirmButton_one": "Remove {{count}} record",
+      "confirmButton_other": "Remove {{count}} records",
+      "ofTotal": "(of {{total}})",
+      "wholeKindWarning": "Every record of at least one kind is missing its file. If part of the library isn't mounted, cancel and check it first.",
+      "audio_one": "{{count}} audio file",
+      "audio_other": "{{count}} audio files",
+      "models_one": "{{count}} 3D model",
+      "models_other": "{{count}} 3D models",
+      "offline": "Couldn't reach the server. Check your connection and try again.",
+      "failedWithReason": "Cleanup failed - {{message}}"
     },
     "sidecars": {
       "title": "Metadata Sidecars",
@@ -3250,7 +3470,7 @@
       "dark": "Dark",
       "system": "System"
     },
-    "yourThemes": "Theme",
+    "yourThemes": "Installed themes",
     "community": "Community",
     "browse": "Browse community themes",
     "import": "Import a theme",
@@ -3703,7 +3923,9 @@
     "confirmUninstall": "Uninstall \"{{name}}\" from this server? Characters keep their references and show them as not installed until it comes back. Rulesets that imported it keep their own copy.",
     "installedHelp": "Installed for everyone on this server. Every character on a matching sheet can use a pack's content straight away.",
     "emptyInstalled": "No content packs installed yet. Browse the content packs to add one.",
-    "forSheet": "For {{sheet}}"
+    "forSheet": "For {{sheet}}",
+    "confirmUninstallTitle": "Uninstall content pack?",
+    "uninstallConfirm": "Uninstall"
   },
   "rulesets": {
     "title": "Rulesets",

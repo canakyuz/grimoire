@@ -11,7 +11,7 @@ whole server.
 
 ## Using them
 
-**Settings → Appearance** has two controls.
+**Settings → Preferences → Theme** has two controls.
 
 **Colour mode** is light, dark, or system. System follows the operating
 system's own light/dark preference and changes with it. The choice is saved to
