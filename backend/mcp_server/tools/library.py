@@ -270,8 +270,9 @@ def tag_books(args: TagBooksArgs, ctx: ToolContext) -> str:
     from ...routers._bulk_schemas import BulkAddTags
     from ...routers.books.core import bulk_add_book_tags
 
-    # The bulk route trusts its role guard and checks no per-book access; a model
-    # can name any id it saw or guessed, so each book is read-checked first.
+    # The bulk route scopes rows with access_control.visible_books, so refused
+    # ids would otherwise look like a quiet no-op. Pre-check each book so the
+    # tool can report refused ids explicitly.
     readable: list[str] = []
     refused: list[str] = []
     for book_id in dict.fromkeys(args.book_ids):
