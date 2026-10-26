@@ -49,7 +49,7 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt \
 # --enable-zlib is not optional despite nothing here compressing video: the PNG
 # *encoder* needs it, and without it the build silently produces a binary that
 # demuxes and decodes correctly, then dies with "Unknown encoder 'png'".
-FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS ffmpeg-builder
+FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8 AS ffmpeg-builder
 
 # Bumping the version means bumping the checksum with it. Take it from a tarball
 # whose signature checks out against the FFmpeg release key
