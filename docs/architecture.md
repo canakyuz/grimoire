@@ -450,3 +450,10 @@ without its migration, or the reverse, fails CI. Rebuilding a table that other t
 is risky in batch mode: migrations run with `PRAGMA foreign_keys=ON`, which can't be turned off
 inside the migration's transaction, so dropping the old copy would fire the children's
 `ON DELETE` actions - see how 0055 sets `ruleset_entries` aside while it rebuilds `rulesets`.
+
+A revision must do on every upgrade what it did the day it was written, so it never imports
+app code (`backend.*`) - a later refactor of that code would silently change the old
+revision. Logic a revision needs (seed data, a sort key, the token vault's key derivation) is
+copied into [`backend/migrations/_frozen/`](../backend/migrations/_frozen/) and never edited
+once a revision uses it. `backend/tests/test_migrations_frozen.py` fails on any other import,
+and checks the frozen token vault still agrees with the live one.

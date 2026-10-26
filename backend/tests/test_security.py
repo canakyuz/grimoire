@@ -39,6 +39,19 @@ class TestSecurityHeaders:
         )
         assert "max-age=" in resp.headers["Strict-Transport-Security"]
 
+    def test_no_hsts_when_untrusted_peer_claims_https(self):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from backend.security import SecurityHeadersMiddleware
+
+        app = FastAPI()
+        app.add_api_route("/ping", lambda: {})
+        app.add_middleware(SecurityHeadersMiddleware)
+        untrusted = TestClient(app, client=("203.0.113.9", 50000))
+        resp = untrusted.get("/ping", headers={"X-Forwarded-Proto": "https"})
+        assert "Strict-Transport-Security" not in resp.headers
+
 
 class TestClientIp:
     def test_forwarded_for_takes_precedence(self):

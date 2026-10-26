@@ -381,13 +381,7 @@ _HSTS = "max-age=31536000; includeSubDomains"
 
 
 def _is_https(scope: Scope) -> bool:
-    if scope.get("scheme") == "https":
-        return True
-    # Behind a TLS-terminating proxy the original scheme arrives in a header.
-    for name, value in scope.get("headers", []):
-        if name == b"x-forwarded-proto" and value.split(b",")[0].strip() == b"https":
-            return True
-    return False
+    return request_is_https(Request(scope))
 
 
 class SecurityHeadersMiddleware:
